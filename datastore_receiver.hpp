@@ -12,12 +12,19 @@
 #include <amqp.h>
 #include <amqp_framing.h>
 
+#define HOSTNAME_MAX_LEN    256
+#define CREDENTIAL_MAX_LEN  64
+#define OPERATION_MAX_LEN  64
+#define ROUTING_KEY_MAX_LEN     256
+#define MESSAGE_BODY_MAX_LEN  4096
+
 typedef struct _DataStoreConf {
-    char hostname[256];
+    char hostname[HOSTNAME_MAX_LEN];
     int port;
-    char user_id[64];
-    char user_pwd[64];
-    char exchange[64];
+    char user_id[CREDENTIAL_MAX_LEN];
+    char user_pwd[CREDENTIAL_MAX_LEN];
+    char exchange[CREDENTIAL_MAX_LEN];
+    char exchange_map_to[CREDENTIAL_MAX_LEN];
     char **routing_keys;
     int routing_keys_len;
 } DataStoreConf_t;
@@ -29,14 +36,14 @@ typedef struct _DataStoreMsgReceiver {
     amqp_connection_state_t conn_state;
     amqp_channel_t channel;
     amqp_bytes_t queuename;
+    char *exchange_map_to;
 } DataStoreMsgReceiver_t;
 
 typedef struct _DataStoreMsg {
-    unsigned long fdId;
-    char *iRodsPath;
-    off_t offset;
-    size_t size;
-    char *buffer;
+    char zone[CREDENTIAL_MAX_LEN];
+    char name[CREDENTIAL_MAX_LEN];
+    char operation[OPERATION_MAX_LEN];
+    char body[MESSAGE_BODY_MAX_LEN];
 } DataStoreMsg_t;
 
 int readDataStoreMsgReceiverConf(char *path, DataStoreConf_t **conf);

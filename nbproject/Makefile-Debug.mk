@@ -37,7 +37,8 @@ OBJECTDIR=${CND_BUILDDIR}/${CND_CONF}/${CND_PLATFORM}
 OBJECTFILES= \
 	${OBJECTDIR}/datastore_receiver.o \
 	${OBJECTDIR}/main.o \
-	${OBJECTDIR}/receiver.o
+	${OBJECTDIR}/msgbuffer.o \
+	${OBJECTDIR}/publisher.o
 
 
 # C Compiler Flags
@@ -79,10 +80,15 @@ ${OBJECTDIR}/main.o: main.cpp
 	${RM} "$@.d"
 	$(COMPILE.cc) -g `pkg-config --cflags librabbitmq` `pkg-config --cflags liblog4cxx` `pkg-config --cflags jsoncpp`   -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/main.o main.cpp
 
-${OBJECTDIR}/receiver.o: receiver.cpp 
+${OBJECTDIR}/msgbuffer.o: msgbuffer.cpp 
 	${MKDIR} -p ${OBJECTDIR}
 	${RM} "$@.d"
-	$(COMPILE.cc) -g `pkg-config --cflags librabbitmq` `pkg-config --cflags liblog4cxx` `pkg-config --cflags jsoncpp`   -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/receiver.o receiver.cpp
+	$(COMPILE.cc) -g `pkg-config --cflags librabbitmq` `pkg-config --cflags liblog4cxx` `pkg-config --cflags jsoncpp`   -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/msgbuffer.o msgbuffer.cpp
+
+${OBJECTDIR}/publisher.o: publisher.cpp 
+	${MKDIR} -p ${OBJECTDIR}
+	${RM} "$@.d"
+	$(COMPILE.cc) -g `pkg-config --cflags librabbitmq` `pkg-config --cflags liblog4cxx` `pkg-config --cflags jsoncpp`   -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/publisher.o publisher.cpp
 
 # Subprojects
 .build-subprojects:

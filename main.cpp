@@ -13,6 +13,8 @@
 #include <log4cxx/logger.h>
 #include <log4cxx/xml/domconfigurator.h>
 #include <log4cxx/helpers/exception.h>
+#include "msgbuffer.hpp"
+#include "publisher.hpp"
 #include "datastore_receiver.hpp"
 
 using namespace std;
@@ -34,6 +36,9 @@ int main(int argc, char** argv) {
     DataStoreMsgReceiver_t *receiver;
     
     LOG4CXX_DEBUG(logger, "iPlant Border Message Server is starting");
+    
+    initMsgBuffer();
+    initPublisher();
     
     status = readDataStoreMsgReceiverConf((char*)DATASTORE_RECEIVER_CONFIG_JSON, &conf);
     if(status != 0) {
@@ -64,6 +69,8 @@ int main(int argc, char** argv) {
     
     releaseDataStoreMsgReceiverConf(conf);
     
+    destroyPublisher();
+    destroyMsgBuffer();
     return 0;
 }
 

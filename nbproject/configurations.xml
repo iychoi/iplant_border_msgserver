@@ -5,7 +5,8 @@
                    displayName="Header Files"
                    projectFiles="true">
       <itemPath>datastore_receiver.hpp</itemPath>
-      <itemPath>receiver.hpp</itemPath>
+      <itemPath>msgbuffer.hpp</itemPath>
+      <itemPath>publisher.hpp</itemPath>
     </logicalFolder>
     <logicalFolder name="ResourceFiles"
                    displayName="Resource Files"
@@ -18,7 +19,8 @@
                    projectFiles="true">
       <itemPath>datastore_receiver.cpp</itemPath>
       <itemPath>main.cpp</itemPath>
-      <itemPath>receiver.cpp</itemPath>
+      <itemPath>msgbuffer.cpp</itemPath>
+      <itemPath>publisher.cpp</itemPath>
     </logicalFolder>
     <logicalFolder name="TestFiles"
                    displayName="Test Files"
@@ -60,9 +62,13 @@
       </item>
       <item path="main.cpp" ex="false" tool="1" flavor2="0">
       </item>
-      <item path="receiver.cpp" ex="false" tool="1" flavor2="0">
+      <item path="msgbuffer.cpp" ex="false" tool="1" flavor2="0">
       </item>
-      <item path="receiver.hpp" ex="false" tool="3" flavor2="0">
+      <item path="msgbuffer.hpp" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="publisher.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="publisher.hpp" ex="false" tool="3" flavor2="0">
       </item>
     </conf>
     <conf name="Release" type="1">
@@ -95,9 +101,13 @@
       </item>
       <item path="main.cpp" ex="false" tool="1" flavor2="0">
       </item>
-      <item path="receiver.cpp" ex="false" tool="1" flavor2="0">
+      <item path="msgbuffer.cpp" ex="false" tool="1" flavor2="0">
       </item>
-      <item path="receiver.hpp" ex="false" tool="3" flavor2="0">
+      <item path="msgbuffer.hpp" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="publisher.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="publisher.hpp" ex="false" tool="3" flavor2="0">
       </item>
     </conf>
   </confs>
