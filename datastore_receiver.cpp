@@ -24,15 +24,70 @@
 using namespace std;
 
 static log4cxx::LoggerPtr logger(log4cxx::Logger::getLogger("datastore_receiver"));
+const char *accept[] = {
+    "collection.add",
+    "collection.rm",
+    "collection.acl.mod",
+    "data-object.add",
+    "data-object.rm",
+    "data-object.mod",
+    "data-object.acl.mod"
+};
 
 /*
  * Receive messages from iplant datastore and send to processor through receiver
  */
+static bool _checkAccept(amqp_envelope_t *envelope) {
+    char routing_key[1024];
+    int i;
+    
+    if(envelope == NULL) {
+        LOG4CXX_ERROR(logger, "_checkAccept: envelope is null");
+        return -EINVAL;
+    }
+    
+    memcpy(routing_key, (char*)envelope->routing_key.bytes, envelope->routing_key.len);
+    routing_key[envelope->routing_key.len] = 0;
+    
+    // check accept
+    for(i=0;i<sizeof(accept);i++) {
+        if(strcmp(routing_key, accept[i]) == 0) {
+            return true;
+        }
+    }
+    
+    return false;
+}
+
+static int _process(amqp_envelope_t *envelope) {
+    int status = 0;
+    GenericMsg_t *gmsg = NULL;
+    
+    if(envelope == NULL) {
+        LOG4CXX_ERROR(logger, "_process: envelope is null");
+        return -EINVAL;
+    }
+    
+    // pass to receiver to process
+    status = createGenericMessage(envelope, &gmsg);
+    if(status != 0) {
+        LOG4CXX_ERROR(logger, "_process: failed to convert to generic message - killing the thread");
+        return EIO;
+    }
+    
+    LOG4CXX_DEBUG(logger, "_process: " << gmsg->delivery_tag << ":" << gmsg->exchange << ":" << gmsg->routing_key << "\t" << gmsg->body);
+    
+    receive(gmsg);
+
+    gmsg = NULL;
+    return 0;
+}
+
 static void* _receiveThread(void* param) {
+    int status = 0;
     DataStoreMsgReceiver_t *receiver = (DataStoreMsgReceiver_t *)param;
     amqp_envelope_t envelope;
     amqp_rpc_reply_t reply;
-    GenericMsg_t *gmsg = NULL;
     
     assert(receiver != NULL);
     
@@ -49,33 +104,13 @@ static void* _receiveThread(void* param) {
             break;
         }
         
-        gmsg = (GenericMsg_t *)calloc(1, sizeof(GenericMsg_t));
-        if(gmsg == NULL) {
-            LOG4CXX_ERROR(logger, "_receiveThread: not enough memory to allocate");
-            break;
+        if(_checkAccept(&envelope)) {
+            status = _process(&envelope);
+            if(status != 0) {
+                LOG4CXX_ERROR(logger, "_receiveThread: failed to process message - killing the thread");
+                break;
+            }
         }
-        
-        gmsg->exchange = (char *)calloc(envelope.exchange.len + 1, 1);
-        gmsg->routing_key = (char *)calloc(envelope.routing_key.len + 1, 1);
-        gmsg->body = (char *)calloc(envelope.message.body.len + 1, 1);
-        if(gmsg->exchange == NULL || gmsg->routing_key == NULL || gmsg->body == NULL) {
-            LOG4CXX_ERROR(logger, "_receiveThread: not enough memory to allocate");
-            break;
-        }
-        
-        gmsg->delivery_tag = envelope.delivery_tag;
-        gmsg->exchange_len = envelope.exchange.len;
-        memcpy(gmsg->exchange, (char *)envelope.exchange.bytes, envelope.exchange.len);
-        gmsg->routing_key_len = envelope.routing_key.len;
-        memcpy(gmsg->routing_key, (char *)envelope.routing_key.bytes, envelope.routing_key.len);
-        gmsg->body_len = envelope.message.body.len;
-        memcpy(gmsg->body, (char *)envelope.message.body.bytes, envelope.message.body.len);
-        
-        LOG4CXX_DEBUG(logger, "_receiveThread: " << gmsg->delivery_tag << ":" << gmsg->exchange << ":" << gmsg->routing_key << "\t" << gmsg->body);
-        
-        receive(gmsg);
-        
-        gmsg = NULL;
         
         amqp_destroy_envelope(&envelope);
         
@@ -86,7 +121,7 @@ static void* _receiveThread(void* param) {
     receiver->thread_run = false;
 }
 
-static int _checkConnConf(DataStoreConn_t *conn) {
+static int _checkConnConf(DataStoreConf_t *conn) {
     if(conn == NULL) {
         LOG4CXX_ERROR(logger, "_checkConnConf: conn is null");
         return EINVAL;
@@ -120,56 +155,104 @@ static int _checkConnConf(DataStoreConn_t *conn) {
     return 0;
 }
 
-int readDataStoreMsgReceiverConf(char *path, DataStoreConn_t **conn) {
-    DataStoreConn_t *handle;
-    Json::Value conf;
+int readDataStoreMsgReceiverConf(char *path, DataStoreConf_t **conf) {
+    DataStoreConf_t *handle;
+    Json::Value confjson;
     Json::Reader reader;
     ifstream istream;
+    Json::ArrayIndex arrsize;
+    Json::Value arr;
+    int i;
     
     if(path == NULL) {
         LOG4CXX_ERROR(logger, "readDataStoreMsgReceiverConf: path is null");
         return EINVAL;
     }
     
-    if(conn == NULL) {
-        LOG4CXX_ERROR(logger, "readDataStoreMsgReceiverConf: conn is null");
+    if(conf == NULL) {
+        LOG4CXX_ERROR(logger, "readDataStoreMsgReceiverConf: conf is null");
         return EINVAL;
     }
     
     istream.open(path);
     
-    bool parsed = reader.parse(istream, conf, false);
+    bool parsed = reader.parse(istream, confjson, false);
     if(!parsed) {
         LOG4CXX_ERROR(logger, "readDataStoreMsgReceiverConf: unable to parse configuration file");
         return EINVAL;
     }
     
-    *conn = NULL;
+    *conf = NULL;
     
-    handle = (DataStoreConn_t *)calloc(1, sizeof(DataStoreConn_t));
+    handle = (DataStoreConf_t *)calloc(1, sizeof(DataStoreConf_t));
     if(handle == NULL) {
         LOG4CXX_ERROR(logger, "readDataStoreMsgReceiverConf: not enough memory to allocate");
         return ENOMEM;
     }
     
-    strcpy(handle->hostname, conf["hostname"].asCString());
-    handle->port = conf["port"].asInt();
-    strcpy(handle->user_id, conf["user_id"].asCString());
-    strcpy(handle->user_pwd, conf["user_pwd"].asCString());
-    strcpy(handle->exchange, conf["exchange"].asCString());
+    strcpy(handle->hostname, confjson["hostname"].asCString());
+    handle->port = confjson["port"].asInt();
+    strcpy(handle->user_id, confjson["user_id"].asCString());
+    strcpy(handle->user_pwd, confjson["user_pwd"].asCString());
+    strcpy(handle->exchange, confjson["exchange"].asCString());
     
-    *conn = handle;
+    arrsize = confjson["routing_keys"].size();
+    handle->routing_keys_len = arrsize;
+    
+    if(arrsize != 0) {
+        handle->routing_keys = (char**)calloc(arrsize, sizeof(char*));
+        if(handle->routing_keys == NULL) {
+            LOG4CXX_ERROR(logger, "readDataStoreMsgReceiverConf: not enough memory to allocate");
+            return ENOMEM;
+        }
+
+        arr = confjson["routing_keys"];
+        for(i=0;i<arrsize;i++) {
+            Json::Value val = arr.get(i, Json::Value::null);
+            handle->routing_keys[i] = (char*)calloc(1, strlen(val.asCString())+1);
+            if(handle->routing_keys[i] == NULL) {
+                LOG4CXX_ERROR(logger, "readDataStoreMsgReceiverConf: not enough memory to allocate");
+                return ENOMEM;
+            }
+
+            strcpy(handle->routing_keys[i], val.asCString());
+        }
+    }
+    
+    *conf = handle;
     
     return 0;
 }
 
-int createDataStoreMsgReceiver(DataStoreConn_t *conn, DataStoreMsgReceiver_t **receiver) {
+int releaseDataStoreMsgReceiverConf(DataStoreConf_t *conf) {
+    if(conf == NULL) {
+        LOG4CXX_ERROR(logger, "releaseDataStoreMsgReceiverConf: conf is null");
+        return EINVAL;
+    }
+    
+    if(conf->routing_keys != NULL) {
+        int i;
+        for(i=0;i<conf->routing_keys_len;i++) {
+            if(conf->routing_keys[i] != NULL) {
+                free(conf->routing_keys[i]);
+                conf->routing_keys[i] = NULL;
+            }
+        }
+        free(conf->routing_keys);
+        conf->routing_keys = NULL;
+    }
+    
+    return 0;
+}
+
+int createDataStoreMsgReceiver(DataStoreConf_t *conf, DataStoreMsgReceiver_t **receiver) {
     int status = 0;
     DataStoreMsgReceiver_t *handle;
     amqp_rpc_reply_t reply;
     amqp_queue_declare_ok_t *queue_status;
+    int i;
     
-    status = _checkConnConf(conn);
+    status = _checkConnConf(conf);
     if(status != 0) {
         LOG4CXX_ERROR(logger, "createDataStoreMsgReceiver: connection configuration check failed");
         return status;
@@ -188,10 +271,9 @@ int createDataStoreMsgReceiver(DataStoreConn_t *conn, DataStoreMsgReceiver_t **r
         return ENOMEM;
     }
     
-    memcpy(&handle->conn, conn, sizeof(DataStoreConn_t));
     handle->thread_run = false;
     
-    LOG4CXX_DEBUG(logger, "createDataStoreMsgReceiver: creating a TCP connection to " << handle->conn.hostname);
+    LOG4CXX_DEBUG(logger, "createDataStoreMsgReceiver: creating a TCP connection to " << conf->hostname);
     
     // create a TCP connection
     handle->conn_state = amqp_new_connection();
@@ -204,20 +286,20 @@ int createDataStoreMsgReceiver(DataStoreConn_t *conn, DataStoreMsgReceiver_t **r
     }
     
     // open a socket
-    status = amqp_socket_open(handle->socket, handle->conn.hostname, handle->conn.port);
+    status = amqp_socket_open(handle->socket, conf->hostname, conf->port);
     if(status != 0) {
-        LOG4CXX_ERROR(logger, "createDataStoreMsgReceiver: unable to create a TCP connection to " << handle->conn.hostname);
+        LOG4CXX_ERROR(logger, "createDataStoreMsgReceiver: unable to create a TCP connection to " << conf->hostname);
         amqp_destroy_connection(handle->conn_state);
         free(handle);
         return EIO;
     }
     
-    LOG4CXX_DEBUG(logger, "createDataStoreMsgReceiver: logging in with " << handle->conn.user_id);
+    LOG4CXX_DEBUG(logger, "createDataStoreMsgReceiver: logging in with " << conf->user_id);
     
     // login
-    reply = amqp_login(handle->conn_state, "/", 0, AMQP_DEFAULT_FRAME_SIZE, 0, AMQP_SASL_METHOD_PLAIN, handle->conn.user_id, handle->conn.user_pwd);
+    reply = amqp_login(handle->conn_state, "/", 0, AMQP_DEFAULT_FRAME_SIZE, 0, AMQP_SASL_METHOD_PLAIN, conf->user_id, conf->user_pwd);
     if(reply.reply_type != AMQP_RESPONSE_NORMAL) {
-        LOG4CXX_ERROR(logger, "createDataStoreMsgReceiver: unable to login with " << handle->conn.user_id);
+        LOG4CXX_ERROR(logger, "createDataStoreMsgReceiver: unable to login with " << conf->user_id);
         amqp_connection_close(handle->conn_state, AMQP_REPLY_SUCCESS);
         amqp_destroy_connection(handle->conn_state);
         free(handle);
@@ -261,17 +343,31 @@ int createDataStoreMsgReceiver(DataStoreConn_t *conn, DataStoreMsgReceiver_t **r
         free(handle);
         return EIO;
     }
-    
-    // bind a queue
-    amqp_queue_bind(handle->conn_state, handle->channel, handle->queuename, amqp_cstring_bytes(handle->conn.exchange), amqp_cstring_bytes("#"), amqp_empty_table);
-    reply = amqp_get_rpc_reply(handle->conn_state);
-    if(reply.reply_type != AMQP_RESPONSE_NORMAL) {
-        LOG4CXX_ERROR(logger, "createDataStoreMsgReceiver: unable to bind a queue");
-        amqp_channel_close(handle->conn_state, handle->channel, AMQP_REPLY_SUCCESS);
-        amqp_connection_close(handle->conn_state, AMQP_REPLY_SUCCESS);
-        amqp_destroy_connection(handle->conn_state);
-        free(handle);
-        return EIO;
+
+    if(conf->routing_keys_len == 0) {
+        amqp_queue_bind(handle->conn_state, handle->channel, handle->queuename, amqp_cstring_bytes(conf->exchange), amqp_cstring_bytes("#"), amqp_empty_table);
+        reply = amqp_get_rpc_reply(handle->conn_state);
+        if(reply.reply_type != AMQP_RESPONSE_NORMAL) {
+            LOG4CXX_ERROR(logger, "createDataStoreMsgReceiver: unable to bind a queue");
+            amqp_channel_close(handle->conn_state, handle->channel, AMQP_REPLY_SUCCESS);
+            amqp_connection_close(handle->conn_state, AMQP_REPLY_SUCCESS);
+            amqp_destroy_connection(handle->conn_state);
+            free(handle);
+            return EIO;
+        }
+    } else {
+        for(i=0;i<conf->routing_keys_len;i++) {
+            amqp_queue_bind(handle->conn_state, handle->channel, handle->queuename, amqp_cstring_bytes(conf->exchange), amqp_cstring_bytes(conf->routing_keys[i]), amqp_empty_table);
+            reply = amqp_get_rpc_reply(handle->conn_state);
+            if(reply.reply_type != AMQP_RESPONSE_NORMAL) {
+                LOG4CXX_ERROR(logger, "createDataStoreMsgReceiver: unable to bind a queue");
+                amqp_channel_close(handle->conn_state, handle->channel, AMQP_REPLY_SUCCESS);
+                amqp_connection_close(handle->conn_state, AMQP_REPLY_SUCCESS);
+                amqp_destroy_connection(handle->conn_state);
+                free(handle);
+                return EIO;
+            }
+        }
     }
     
     LOG4CXX_DEBUG(logger, "createDataStoreMsgReceiver: starting consuming");
@@ -288,12 +384,13 @@ int createDataStoreMsgReceiver(DataStoreConn_t *conn, DataStoreMsgReceiver_t **r
         return EIO;
     }
     
-    
     *receiver = handle;
     return 0;
 }
 
 int releaseDataStoreMsgReceiver(DataStoreMsgReceiver_t *receiver) {
+    int i;
+    
     if(receiver == NULL) {
         LOG4CXX_ERROR(logger, "releaseDataStoreMsgReceiver: receiver is null");
         return EINVAL;
@@ -327,12 +424,6 @@ int runDataStoreMsgReceiver(DataStoreMsgReceiver_t *receiver) {
     if(receiver->thread_run) {
         LOG4CXX_ERROR(logger, "runDataStoreMsgReceiver: an event receiver thread is running");
         return EINVAL;
-    }
-    
-    status = _checkConnConf(&receiver->conn);
-    if(status != 0) {
-        LOG4CXX_ERROR(logger, "runDataStoreMsgReceiver: connection configuration check failed");
-        return status;
     }
     
     // create a thread

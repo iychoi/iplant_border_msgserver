@@ -10,6 +10,9 @@
 #include <errno.h>
 #include <string.h>
 #include <assert.h>
+#include <amqp_tcp_socket.h>
+#include <amqp.h>
+#include <amqp_framing.h>
 #include <log4cxx/logger.h>
 #include "receiver.hpp"
 #include <jsoncpp/json/json.h>
@@ -21,7 +24,48 @@ static log4cxx::LoggerPtr logger(log4cxx::Logger::getLogger("receiver"));
 /*
  * Receive messages from source and send to processor
  */
-void freeGenericMessage(GenericMsg_t *msg) {
+int createGenericMessage(amqp_envelope_t *envelope, GenericMsg_t **genericMsg) {
+    GenericMsg_t *gmsg;
+    
+    if(envelope == NULL) {
+        LOG4CXX_ERROR(logger, "createGenericMessage: envelope is null");
+        return EINVAL;
+    }
+    
+    if(genericMsg == NULL) {
+        LOG4CXX_ERROR(logger, "createGenericMessage: genericMsg is null");
+        return EINVAL;
+    }
+    
+    *genericMsg = NULL;
+    
+    gmsg = (GenericMsg_t *)calloc(1, sizeof(GenericMsg_t));
+    if(gmsg == NULL) {
+        LOG4CXX_ERROR(logger, "createGenericMessage: not enough memory to allocate");
+        return ENOMEM;
+    }
+
+    gmsg->exchange = (char *)calloc(envelope->exchange.len + 1, 1);
+    gmsg->routing_key = (char *)calloc(envelope->routing_key.len + 1, 1);
+    gmsg->body = (char *)calloc(envelope->message.body.len + 1, 1);
+    if(gmsg->exchange == NULL || gmsg->routing_key == NULL || gmsg->body == NULL) {
+        LOG4CXX_ERROR(logger, "createGenericMessage: not enough memory to allocate");
+        return ENOMEM;
+    }
+
+    gmsg->delivery_tag = envelope->delivery_tag;
+    gmsg->exchange_len = envelope->exchange.len;
+    memcpy(gmsg->exchange, (char *)envelope->exchange.bytes, envelope->exchange.len);
+    gmsg->routing_key_len = envelope->routing_key.len;
+    memcpy(gmsg->routing_key, (char *)envelope->routing_key.bytes, envelope->routing_key.len);
+    gmsg->body_len = envelope->message.body.len;
+    memcpy(gmsg->body, (char *)envelope->message.body.bytes, envelope->message.body.len);
+    
+    *genericMsg = gmsg;
+    return 0;
+}
+
+int releaseGenericMessage(GenericMsg_t *msg) {
     if(msg == NULL) {
         LOG4CXX_ERROR(logger, "freeGenericMessage: msg is null");
     }
@@ -42,6 +86,7 @@ void freeGenericMessage(GenericMsg_t *msg) {
     }
     
     free(msg);
+    return 0;
 }
 
 int receive(GenericMsg_t *msg) {
@@ -58,7 +103,7 @@ int receive(GenericMsg_t *msg) {
     bool parsed = reader.parse(msg->body, msgjson, false);
     if(!parsed) {
         LOG4CXX_ERROR(logger, "receive: unable to parse message body");
-        freeGenericMessage(msg);
+        releaseGenericMessage(msg);
         return EINVAL;
     }
     
@@ -69,6 +114,6 @@ int receive(GenericMsg_t *msg) {
     printf("AUTHOR: %s\n", author.toStyledString().c_str());
     
     
-    freeGenericMessage(msg);
+    releaseGenericMessage(msg);
     return 0;
 }

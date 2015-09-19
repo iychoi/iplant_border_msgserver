@@ -30,20 +30,20 @@ int main(int argc, char** argv) {
     log4cxx::xml::DOMConfigurator::configure(LOG_CONFIG_XML);
     
     int status = 0;
-    DataStoreConn_t *conn;
+    DataStoreConf_t *conf;
     DataStoreMsgReceiver_t *receiver;
     
     LOG4CXX_DEBUG(logger, "iPlant Border Message Server is starting");
     
-    status = readDataStoreMsgReceiverConf(DATASTORE_RECEIVER_CONFIG_JSON, &conn);
+    status = readDataStoreMsgReceiverConf((char*)DATASTORE_RECEIVER_CONFIG_JSON, &conf);
     if(status != 0) {
         LOG4CXX_ERROR(logger, "readDataStoreMsgReceiverConf failed status = " << status);
         return status;
     }
     
-    assert(conn != NULL);
+    assert(conf != NULL);
     
-    status = createDataStoreMsgReceiver(conn, &receiver);
+    status = createDataStoreMsgReceiver(conf, &receiver);
     if(status != 0) {
         LOG4CXX_ERROR(logger, "createDataStoreMsgReceiver failed status = " << status);
         return status;
@@ -62,7 +62,7 @@ int main(int argc, char** argv) {
         return status;
     }
     
-    free(conn);
+    releaseDataStoreMsgReceiverConf(conf);
     
     return 0;
 }

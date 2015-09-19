@@ -20,6 +20,8 @@ typedef struct _GenericMsg {
     int body_len;
 } GenericMsg_t;
 
+int createGenericMessage(amqp_envelope_t *envelope, GenericMsg_t **genericMsg);
+int releaseGenericMessage(GenericMsg_t *msg);
 int receive(GenericMsg_t *msg);
 
 
