@@ -275,6 +275,8 @@ static int _process(DataStoreMsgReceiver_t *receiver, amqp_envelope_t *envelope)
     char routing_key[ROUTING_KEY_MAX_LEN];
     char new_exchange[CREDENTIAL_MAX_LEN];
     char new_routing_key[ROUTING_KEY_MAX_LEN];
+    char queuename[ROUTING_KEY_MAX_LEN];
+    char binding[ROUTING_KEY_MAX_LEN];
     int i;
     
     if(receiver == NULL) {
@@ -312,7 +314,13 @@ static int _process(DataStoreMsgReceiver_t *receiver, amqp_envelope_t *envelope)
             memset(new_routing_key, 0, ROUTING_KEY_MAX_LEN);
             sprintf(new_routing_key, "%s.%s.%s", dsmsg->zone, dsmsg->name, dsmsg->operation);
             
-            status = createGenericMessage(new_exchange, new_routing_key, dsmsg->body, &gmsg);
+            memset(queuename, 0, ROUTING_KEY_MAX_LEN);
+            sprintf(queuename, "%s_%s", dsmsg->zone, dsmsg->name);
+            
+            memset(binding, 0, ROUTING_KEY_MAX_LEN);
+            sprintf(binding, "%s.%s.#", dsmsg->zone, dsmsg->name);
+            
+            status = createGenericMessage(new_exchange, new_routing_key, queuename, binding, dsmsg->body, &gmsg);
             if(status != 0) {
                 LOG4CXX_ERROR(logger, "_process: failed to create a generic message");
                 return EIO;

@@ -46,6 +46,31 @@ static void* _publisherThread(void* param) {
         
         msg = getMessage();
         if(msg != NULL) {
+            std::map<std::string, std::string>::iterator it;
+            std::string key(msg->queuename);
+            it = publisher->queuenames.find(key);
+            if(it == publisher->queuenames.end()) {
+                amqp_queue_declare_ok_t *queue_status;
+                
+                LOG4CXX_DEBUG(logger, "_publisherThread: declaring and binding a queue");
+
+                // declare a queue
+                queue_status = amqp_queue_declare(publisher->conn_state, publisher->channel, amqp_cstring_bytes(msg->queuename), 0, 0, 1, 1, amqp_empty_table);
+                reply = amqp_get_rpc_reply(publisher->conn_state);
+                if(reply.reply_type != AMQP_RESPONSE_NORMAL) {
+                    LOG4CXX_ERROR(logger, "_publisherThread: unable to declare a queue");
+                } else {
+                    // bind a queue
+                    amqp_queue_bind(publisher->conn_state, publisher->channel, amqp_cstring_bytes(msg->queuename), amqp_cstring_bytes(msg->exchange), amqp_cstring_bytes(msg->binding), amqp_empty_table);
+                    reply = amqp_get_rpc_reply(publisher->conn_state);
+                    if(reply.reply_type != AMQP_RESPONSE_NORMAL) {
+                        LOG4CXX_ERROR(logger, "_publisherThread: unable to bind a queue");
+                    } else {
+                        publisher->queuenames[key] = key;
+                    }
+                }
+            }
+            
             LOG4CXX_DEBUG(logger, "_publisherThread: " << msg->exchange << ":" << msg->routing_key << "\t" << msg->body);
             
             // send
@@ -148,8 +173,6 @@ int createPublisher(PublisherConf_t *conf, Publisher_t **publisher) {
     int status = 0;
     Publisher_t *handle;
     amqp_rpc_reply_t reply;
-    amqp_queue_declare_ok_t *queue_status;
-    int i;
     
     status = _checkConnConf(conf);
     if(status != 0) {
@@ -164,7 +187,7 @@ int createPublisher(PublisherConf_t *conf, Publisher_t **publisher) {
     
     *publisher = NULL;
     
-    handle = (Publisher_t *)calloc(1, sizeof(Publisher_t));
+    handle = new Publisher_t;
     if(handle == NULL) {
         LOG4CXX_ERROR(logger, "createPublisher: not enough memory to allocate");
         return ENOMEM;
@@ -218,30 +241,6 @@ int createPublisher(PublisherConf_t *conf, Publisher_t **publisher) {
         free(handle);
         return EIO;
     }
-
-    LOG4CXX_DEBUG(logger, "createPublisher: declaring and binding a queue");
-    
-    // declare a queue
-    queue_status = amqp_queue_declare(handle->conn_state, handle->channel, amqp_empty_bytes, 0, 0, 1, 1, amqp_empty_table);
-    reply = amqp_get_rpc_reply(handle->conn_state);
-    if(reply.reply_type != AMQP_RESPONSE_NORMAL) {
-        LOG4CXX_ERROR(logger, "createPublisher: unable to declare a queue");
-        amqp_channel_close(handle->conn_state, handle->channel, AMQP_REPLY_SUCCESS);
-        amqp_connection_close(handle->conn_state, AMQP_REPLY_SUCCESS);
-        amqp_destroy_connection(handle->conn_state);
-        free(handle);
-        return EIO;
-    }
-    
-    handle->queuename = amqp_bytes_malloc_dup(queue_status->queue);
-    if(handle->queuename.bytes == NULL) {
-        LOG4CXX_ERROR(logger, "createPublisher: unable to declare a queue");
-        amqp_channel_close(handle->conn_state, handle->channel, AMQP_REPLY_SUCCESS);
-        amqp_connection_close(handle->conn_state, AMQP_REPLY_SUCCESS);
-        amqp_destroy_connection(handle->conn_state);
-        free(handle);
-        return EIO;
-    }
     
     *publisher = handle;
     return 0;
@@ -266,7 +265,7 @@ int releasePublisher(Publisher_t *publisher) {
     amqp_connection_close(publisher->conn_state, AMQP_REPLY_SUCCESS);
     amqp_destroy_connection(publisher->conn_state);
     
-    free(publisher);
+    delete publisher;
     LOG4CXX_DEBUG(logger, "releasePublisher: closed connection");
     return 0;
 }

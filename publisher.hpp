@@ -27,7 +27,7 @@ typedef struct _Publisher {
     amqp_socket_t *socket;
     amqp_connection_state_t conn_state;
     amqp_channel_t channel;
-    amqp_bytes_t queuename;
+    std::map<std::string, std::string> queuenames;
 } Publisher_t;
 
 int readPublisherConf(char *path, PublisherConf_t **conf);
