@@ -11,11 +11,8 @@
 #include <amqp_tcp_socket.h>
 #include <amqp.h>
 #include <amqp_framing.h>
+#include "common.hpp"
 
-#define HOSTNAME_MAX_LEN    256
-#define CREDENTIAL_MAX_LEN  64
-#define OPERATION_MAX_LEN  64
-#define ROUTING_KEY_MAX_LEN     256
 #define MESSAGE_BODY_MAX_LEN  4096
 
 typedef struct _DataStoreConf {

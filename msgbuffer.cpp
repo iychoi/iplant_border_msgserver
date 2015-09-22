@@ -170,7 +170,7 @@ GenericMsg_t * getMessage() {
     
     pthread_mutex_lock(&g_MsgQueueLock);
     if(g_MsgQueue.empty()) {
-        return NULL;
+        msg = NULL;
     } else {
         msg = g_MsgQueue.front();
         g_MsgQueue.pop();

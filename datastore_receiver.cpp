@@ -18,7 +18,9 @@
 #include <jsoncpp/json/reader.h>
 #include <iostream>
 #include <fstream>
+#include <pthread.h>
 #include <jsoncpp/json/writer.h>
+#include "common.hpp"
 #include "msgbuffer.hpp"
 #include "datastore_receiver.hpp"
 
@@ -297,6 +299,8 @@ static int _process(DataStoreMsgReceiver_t *receiver, amqp_envelope_t *envelope)
             DataStoreMsg_t *dsmsg = NULL;
             GenericMsg_t *gmsg = NULL;
             
+            LOG4CXX_DEBUG(logger, "_process: routing_key = " << routing_key);
+            
             status = routing_keys[i].handler(envelope, &dsmsg);
             if(status != 0) {
                 LOG4CXX_ERROR(logger, "_process: failed to call handler");
@@ -335,10 +339,10 @@ static void* _receiveThread(void* param) {
     
     LOG4CXX_DEBUG(logger, "_receiveThread: event receiver thread started");
     
-    while(1) {
-        pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
-        
+    while(receiver->thread_run) {
         amqp_maybe_release_buffers(receiver->conn_state);
+        
+        pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
         
         reply = amqp_consume_message(receiver->conn_state, &envelope, NULL, 0);
         if(reply.reply_type != AMQP_RESPONSE_NORMAL) {
@@ -357,7 +361,6 @@ static void* _receiveThread(void* param) {
         pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
     }
     
-    LOG4CXX_DEBUG(logger, "_receiveThread: event receiver thread terminated for unknown reason");
     receiver->thread_run = false;
 }
 
@@ -474,13 +477,14 @@ int readDataStoreMsgReceiverConf(char *path, DataStoreConf_t **conf) {
 }
 
 int releaseDataStoreMsgReceiverConf(DataStoreConf_t *conf) {
+    int i;
+    
     if(conf == NULL) {
         LOG4CXX_ERROR(logger, "releaseDataStoreMsgReceiverConf: conf is null");
         return EINVAL;
     }
     
     if(conf->routing_keys != NULL) {
-        int i;
         for(i=0;i<conf->routing_keys_len;i++) {
             if(conf->routing_keys[i] != NULL) {
                 free(conf->routing_keys[i]);
@@ -491,6 +495,7 @@ int releaseDataStoreMsgReceiverConf(DataStoreConf_t *conf) {
         conf->routing_keys = NULL;
     }
     
+    free(conf);
     return 0;
 }
 
@@ -654,9 +659,10 @@ int releaseDataStoreMsgReceiver(DataStoreMsgReceiver_t *receiver) {
     if(receiver->thread_run) {
         // stop thread
         LOG4CXX_DEBUG(logger, "releaseDataStoreMsgReceiver: canceling an event receiver thread");
-        pthread_cancel(receiver->thread);
-        
         receiver->thread_run = false;
+        
+        pthread_cancel(receiver->thread);
+        pthread_join(receiver->thread, NULL);
     }
     
     amqp_channel_close(receiver->conn_state, receiver->channel, AMQP_REPLY_SUCCESS);
@@ -686,6 +692,8 @@ int runDataStoreMsgReceiver(DataStoreMsgReceiver_t *receiver) {
         return EINVAL;
     }
     
+    receiver->thread_run = true;
+    
     // create a thread
     status = pthread_create(&receiver->thread, NULL, _receiveThread, (void*)receiver);
     if(status != 0) {
@@ -693,7 +701,6 @@ int runDataStoreMsgReceiver(DataStoreMsgReceiver_t *receiver) {
         return status;
     }
     
-    receiver->thread_run = true;
     LOG4CXX_DEBUG(logger, "runDataStoreMsgReceiver: an event receiver thread is started");
     return 0;
 }
