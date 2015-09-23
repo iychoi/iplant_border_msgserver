@@ -44,11 +44,9 @@ int destroyMsgBuffer() {
     return 0;
 }
 
-int createGenericMessage(char *exchange, char *routing_key, char *queuename, char *binding, char *body, GenericMsg_t **genericMsg) {
+int createGenericMessage(char *exchange, char *routing_key, char *body, GenericMsg_t **genericMsg) {
     int exchange_len;
     int routing_key_len;
-    int queuename_len;
-    int binding_len;
     int body_len;
     
     if(exchange == NULL) {
@@ -58,16 +56,6 @@ int createGenericMessage(char *exchange, char *routing_key, char *queuename, cha
     
     if(routing_key == NULL) {
         LOG4CXX_ERROR(logger, "createGenericMessage: routing_key is null");
-        return EINVAL;
-    }
-    
-    if(queuename == NULL) {
-        LOG4CXX_ERROR(logger, "createGenericMessage: queuename is null");
-        return EINVAL;
-    }
-    
-    if(binding == NULL) {
-        LOG4CXX_ERROR(logger, "createGenericMessage: binding is null");
         return EINVAL;
     }
     
@@ -83,14 +71,12 @@ int createGenericMessage(char *exchange, char *routing_key, char *queuename, cha
     
     exchange_len = strlen(exchange);
     routing_key_len = strlen(routing_key);
-    queuename_len = strlen(queuename);
-    binding_len = strlen(binding);
     body_len = strlen(body);
     
-    return createGenericMessage(exchange, exchange_len, routing_key, routing_key_len, queuename, queuename_len, binding, binding_len, body, body_len, genericMsg);
+    return createGenericMessage(exchange, exchange_len, routing_key, routing_key_len, body, body_len, genericMsg);
 }
 
-int createGenericMessage(char *exchange, int exchange_len, char *routing_key, int routing_key_len, char *queuename, int queuename_len, char *binding, int binding_len, char *body, int body_len, GenericMsg_t **genericMsg) {
+int createGenericMessage(char *exchange, int exchange_len, char *routing_key, int routing_key_len, char *body, int body_len, GenericMsg_t **genericMsg) {
     GenericMsg_t *gmsg;
     
     if(exchange == NULL) {
@@ -100,16 +86,6 @@ int createGenericMessage(char *exchange, int exchange_len, char *routing_key, in
     
     if(routing_key == NULL) {
         LOG4CXX_ERROR(logger, "createGenericMessage: routing_key is null");
-        return EINVAL;
-    }
-    
-    if(queuename == NULL) {
-        LOG4CXX_ERROR(logger, "createGenericMessage: queuename is null");
-        return EINVAL;
-    }
-    
-    if(binding == NULL) {
-        LOG4CXX_ERROR(logger, "createGenericMessage: binding is null");
         return EINVAL;
     }
     
@@ -133,10 +109,8 @@ int createGenericMessage(char *exchange, int exchange_len, char *routing_key, in
 
     gmsg->exchange = (char *)calloc(exchange_len + 1, 1);
     gmsg->routing_key = (char *)calloc(routing_key_len + 1, 1);
-    gmsg->queuename = (char *)calloc(queuename_len + 1, 1);
-    gmsg->binding = (char *)calloc(binding_len + 1, 1);
     gmsg->body = (char *)calloc(body_len + 1, 1);
-    if(gmsg->exchange == NULL || gmsg->routing_key == NULL || gmsg->queuename == NULL || gmsg->binding == NULL || gmsg->body == NULL) {
+    if(gmsg->exchange == NULL || gmsg->routing_key == NULL || gmsg->body == NULL) {
         LOG4CXX_ERROR(logger, "createGenericMessage: not enough memory to allocate");
         return ENOMEM;
     }
@@ -145,10 +119,6 @@ int createGenericMessage(char *exchange, int exchange_len, char *routing_key, in
     memcpy(gmsg->exchange, exchange, exchange_len);
     gmsg->routing_key_len = routing_key_len;
     memcpy(gmsg->routing_key, routing_key, routing_key_len);
-    gmsg->queuename_len = queuename_len;
-    memcpy(gmsg->queuename, queuename, queuename_len);
-    gmsg->binding_len = binding_len;
-    memcpy(gmsg->binding, binding, binding_len);
     gmsg->body_len = body_len;
     memcpy(gmsg->body, body, body_len);
     
@@ -169,16 +139,6 @@ int releaseGenericMessage(GenericMsg_t *msg) {
     if(msg->routing_key != NULL) {
         free(msg->routing_key);
         msg->routing_key = NULL;
-    }
-    
-    if(msg->queuename != NULL) {
-        free(msg->queuename);
-        msg->queuename = NULL;
-    }
-    
-    if(msg->binding != NULL) {
-        free(msg->binding);
-        msg->binding = NULL;
     }
     
     if(msg->body != NULL) {

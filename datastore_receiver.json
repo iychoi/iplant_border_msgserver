@@ -1,10 +1,9 @@
 {
-    "hostname":"",
-    "port":31333,
-    "user_id":"",
-    "user_pwd":"",
-    "exchange":"",
-    "exchange_map_to":"datastore",
+    "hostname":"localhost",
+    "port":5672,
+    "user_id":"user",
+    "user_pwd":"password",
+    "exchange":"exchange",
     "routing_keys":["collection.add", "collection.rm", "collection.acl.mod",
         "data-object.add", "data-object.mod", "data-object.rm", "data-object.acl.mod"]
 }

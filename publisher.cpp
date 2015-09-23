@@ -47,11 +47,23 @@ static void* _publisherThread(void* param) {
         msg = getMessage();
         if(msg != NULL) {
             std::map<std::string, std::string>::iterator it;
-            std::string key(msg->queuename);
-            it = publisher->queuenames.find(key);
-            if(it == publisher->queuenames.end()) {
-                amqp_queue_declare_ok_t *queue_status;
+            std::string key(msg->exchange);
+            it = publisher->exchanges.find(key);
+            if(it == publisher->exchanges.end()) {
+                amqp_exchange_declare_ok_t *exchange_status;
                 
+                LOG4CXX_DEBUG(logger, "_publisherThread: declaring an exchange");
+                
+                // declare an exchange
+                exchange_status = amqp_exchange_declare(publisher->conn_state, publisher->channel, amqp_cstring_bytes(msg->exchange), amqp_cstring_bytes("topic"), 0, 0, 1, 0, amqp_empty_table);
+                reply = amqp_get_rpc_reply(publisher->conn_state);
+                if(reply.reply_type != AMQP_RESPONSE_NORMAL) {
+                    LOG4CXX_ERROR(logger, "_publisherThread: unable to declare an exchange");
+                } else {
+                    publisher->exchanges[key] = key;
+                }
+                
+                /*
                 LOG4CXX_DEBUG(logger, "_publisherThread: declaring and binding a queue");
 
                 // declare a queue
@@ -69,6 +81,7 @@ static void* _publisherThread(void* param) {
                         publisher->queuenames[key] = key;
                     }
                 }
+                */
             }
             
             LOG4CXX_DEBUG(logger, "_publisherThread: " << msg->exchange << ":" << msg->routing_key << "\t" << msg->body);

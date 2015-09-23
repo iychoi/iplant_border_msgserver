@@ -21,7 +21,6 @@ typedef struct _DataStoreConf {
     char user_id[CREDENTIAL_MAX_LEN];
     char user_pwd[CREDENTIAL_MAX_LEN];
     char exchange[CREDENTIAL_MAX_LEN];
-    char exchange_map_to[CREDENTIAL_MAX_LEN];
     char **routing_keys;
     int routing_keys_len;
 } DataStoreConf_t;
@@ -33,7 +32,6 @@ typedef struct _DataStoreMsgReceiver {
     amqp_connection_state_t conn_state;
     amqp_channel_t channel;
     amqp_bytes_t queuename;
-    char *exchange_map_to;
 } DataStoreMsgReceiver_t;
 
 typedef struct _DataStoreMsg {

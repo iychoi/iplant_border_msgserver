@@ -275,8 +275,6 @@ static int _process(DataStoreMsgReceiver_t *receiver, amqp_envelope_t *envelope)
     char routing_key[ROUTING_KEY_MAX_LEN];
     char new_exchange[CREDENTIAL_MAX_LEN];
     char new_routing_key[ROUTING_KEY_MAX_LEN];
-    char queuename[ROUTING_KEY_MAX_LEN];
-    char binding[ROUTING_KEY_MAX_LEN];
     int i;
     
     if(receiver == NULL) {
@@ -288,8 +286,6 @@ static int _process(DataStoreMsgReceiver_t *receiver, amqp_envelope_t *envelope)
         LOG4CXX_ERROR(logger, "_process: envelope is null");
         return -EINVAL;
     }
-    
-    strcpy(new_exchange, receiver->exchange_map_to);
     
     memcpy(routing_key, (char*)envelope->routing_key.bytes, envelope->routing_key.len);
     routing_key[envelope->routing_key.len] = 0;
@@ -314,13 +310,10 @@ static int _process(DataStoreMsgReceiver_t *receiver, amqp_envelope_t *envelope)
             memset(new_routing_key, 0, ROUTING_KEY_MAX_LEN);
             sprintf(new_routing_key, "%s.%s.%s", dsmsg->zone, dsmsg->name, dsmsg->operation);
             
-            memset(queuename, 0, ROUTING_KEY_MAX_LEN);
-            sprintf(queuename, "%s_%s", dsmsg->zone, dsmsg->name);
+            memset(new_exchange, 0, ROUTING_KEY_MAX_LEN);
+            sprintf(new_exchange, "%s_%s", dsmsg->zone, dsmsg->name);
             
-            memset(binding, 0, ROUTING_KEY_MAX_LEN);
-            sprintf(binding, "%s.%s.#", dsmsg->zone, dsmsg->name);
-            
-            status = createGenericMessage(new_exchange, new_routing_key, queuename, binding, dsmsg->body, &gmsg);
+            status = createGenericMessage(new_exchange, new_routing_key, dsmsg->body, &gmsg);
             if(status != 0) {
                 LOG4CXX_ERROR(logger, "_process: failed to create a generic message");
                 return EIO;
@@ -446,11 +439,6 @@ int readDataStoreMsgReceiverConf(char *path, DataStoreConf_t **conf) {
     strcpy(handle->user_id, confjson["user_id"].asCString());
     strcpy(handle->user_pwd, confjson["user_pwd"].asCString());
     strcpy(handle->exchange, confjson["exchange"].asCString());
-    if(confjson["exchange_map_to"].isNull()) {
-        strcpy(handle->exchange_map_to, confjson["exchange"].asCString());
-    } else {
-        strcpy(handle->exchange_map_to, confjson["exchange_map_to"].asCString());
-    }
     
     if(confjson["routing_keys"].isNull()) {
         arrsize = 0;
@@ -532,14 +520,6 @@ int createDataStoreMsgReceiver(DataStoreConf_t *conf, DataStoreMsgReceiver_t **r
         LOG4CXX_ERROR(logger, "createDataStoreMsgReceiver: not enough memory to allocate");
         return ENOMEM;
     }
-    
-    handle->exchange_map_to = (char*)calloc(strlen(conf->exchange_map_to) + 1, 1);
-    if(handle->exchange_map_to == NULL) {
-        LOG4CXX_ERROR(logger, "createDataStoreMsgReceiver: not enough memory to allocate");
-        return ENOMEM;
-    }
-    
-    strcpy(handle->exchange_map_to, conf->exchange_map_to);
     
     handle->thread_run = false;
     
@@ -676,11 +656,6 @@ int releaseDataStoreMsgReceiver(DataStoreMsgReceiver_t *receiver) {
     amqp_channel_close(receiver->conn_state, receiver->channel, AMQP_REPLY_SUCCESS);
     amqp_connection_close(receiver->conn_state, AMQP_REPLY_SUCCESS);
     amqp_destroy_connection(receiver->conn_state);
-    
-    if(receiver->exchange_map_to != NULL) {
-        free(receiver->exchange_map_to);
-        receiver->exchange_map_to = NULL;
-    }
     
     free(receiver);
     LOG4CXX_DEBUG(logger, "releaseDataStoreMsgReceiver: closed connection");
