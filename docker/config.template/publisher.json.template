@@ -1,0 +1,6 @@
+{
+    "hostname":"localhost",
+    "port":5672,
+    "user_id":"$RBMQ_USER$",
+    "user_pwd":"$RBMQ_PASSWORD$"
+}

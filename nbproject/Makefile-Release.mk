@@ -55,7 +55,7 @@ FFLAGS=
 ASFLAGS=
 
 # Link Libraries and Options
-LDLIBSOPTIONS=
+LDLIBSOPTIONS=`pkg-config --libs librabbitmq` -lpthread  `pkg-config --libs liblog4cxx` `pkg-config --libs jsoncpp`  
 
 # Build Targets
 .build-conf: ${BUILD_SUBPROJECTS}
@@ -68,27 +68,27 @@ ${CND_DISTDIR}/${CND_CONF}/${CND_PLATFORM}/iplant_border_msg_server: ${OBJECTFIL
 ${OBJECTDIR}/datastore_receiver.o: datastore_receiver.cpp 
 	${MKDIR} -p ${OBJECTDIR}
 	${RM} "$@.d"
-	$(COMPILE.cc) -O2 -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/datastore_receiver.o datastore_receiver.cpp
+	$(COMPILE.cc) -O2 `pkg-config --cflags librabbitmq` `pkg-config --cflags liblog4cxx` `pkg-config --cflags jsoncpp`   -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/datastore_receiver.o datastore_receiver.cpp
 
 ${OBJECTDIR}/datastore_receiver.hpp.gch: datastore_receiver.hpp 
 	${MKDIR} -p ${OBJECTDIR}
 	${RM} "$@.d"
-	$(COMPILE.cc) -O2 -MMD -MP -MF "$@.d" -o "$@" datastore_receiver.hpp
+	$(COMPILE.cc) -O2 `pkg-config --cflags librabbitmq` `pkg-config --cflags liblog4cxx` `pkg-config --cflags jsoncpp`   -MMD -MP -MF "$@.d" -o "$@" datastore_receiver.hpp
 
 ${OBJECTDIR}/main.o: main.cpp 
 	${MKDIR} -p ${OBJECTDIR}
 	${RM} "$@.d"
-	$(COMPILE.cc) -O2 -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/main.o main.cpp
+	$(COMPILE.cc) -O2 `pkg-config --cflags librabbitmq` `pkg-config --cflags liblog4cxx` `pkg-config --cflags jsoncpp`   -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/main.o main.cpp
 
 ${OBJECTDIR}/msgbuffer.o: msgbuffer.cpp 
 	${MKDIR} -p ${OBJECTDIR}
 	${RM} "$@.d"
-	$(COMPILE.cc) -O2 -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/msgbuffer.o msgbuffer.cpp
+	$(COMPILE.cc) -O2 `pkg-config --cflags librabbitmq` `pkg-config --cflags liblog4cxx` `pkg-config --cflags jsoncpp`   -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/msgbuffer.o msgbuffer.cpp
 
 ${OBJECTDIR}/publisher.o: publisher.cpp 
 	${MKDIR} -p ${OBJECTDIR}
 	${RM} "$@.d"
-	$(COMPILE.cc) -O2 -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/publisher.o publisher.cpp
+	$(COMPILE.cc) -O2 `pkg-config --cflags librabbitmq` `pkg-config --cflags liblog4cxx` `pkg-config --cflags jsoncpp`   -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/publisher.o publisher.cpp
 
 # Subprojects
 .build-subprojects:

@@ -96,6 +96,14 @@
         <asmTool>
           <developmentMode>5</developmentMode>
         </asmTool>
+        <linkerTool>
+          <linkerLibItems>
+            <linkerOptionItem>`pkg-config --libs librabbitmq`</linkerOptionItem>
+            <linkerLibStdlibItem>PosixThreads</linkerLibStdlibItem>
+            <linkerOptionItem>`pkg-config --libs liblog4cxx`</linkerOptionItem>
+            <linkerOptionItem>`pkg-config --libs jsoncpp`</linkerOptionItem>
+          </linkerLibItems>
+        </linkerTool>
       </compileType>
       <item path="common.hpp" ex="false" tool="3" flavor2="0">
       </item>

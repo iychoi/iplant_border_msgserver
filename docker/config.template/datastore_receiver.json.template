@@ -1,0 +1,9 @@
+{
+    "hostname":"$SRC_HOST$",
+    "port":$SRC_PORT$,
+    "user_id":"$SRC_USER$",
+    "user_pwd":"$SRC_PASSWORD$",
+    "exchange":"$SRC_EXCHANGE$",
+    "routing_keys":["collection.add", "collection.rm", "collection.acl.mod",
+        "data-object.add", "data-object.mod", "data-object.rm", "data-object.acl.mod"]
+}
