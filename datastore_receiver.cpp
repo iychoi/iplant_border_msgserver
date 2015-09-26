@@ -310,7 +310,7 @@ static int _process(DataStoreMsgReceiver_t *receiver, amqp_envelope_t *envelope)
             memset(new_routing_key, 0, ROUTING_KEY_MAX_LEN);
             sprintf(new_routing_key, "%s.%s.%s", dsmsg->zone, dsmsg->name, dsmsg->operation);
             
-            memset(new_exchange, 0, ROUTING_KEY_MAX_LEN);
+            memset(new_exchange, 0, CREDENTIAL_MAX_LEN);
             sprintf(new_exchange, "%s_%s", dsmsg->zone, dsmsg->name);
             
             status = createGenericMessage(new_exchange, new_routing_key, dsmsg->body, &gmsg);

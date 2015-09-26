@@ -45,8 +45,9 @@ RUN apt-get install -y rabbitmq-server
 
 RUN rabbitmq-plugins enable rabbitmq_management
 
-# expose rabbitmq_management user interface (port 15672)
+# expose rabbitmq_management user interface (port 15672) and rabbitmq service interface (port 5672)
 EXPOSE 15672
+EXPOSE 5672
 
 # script
 ADD initService.sh /initService.sh
