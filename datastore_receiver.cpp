@@ -56,7 +56,6 @@ const RoutingKeyHandlerEntry_t routing_keys[] = {
 static int handle_collection_basic(amqp_envelope_t *envelope, DataStoreMsg_t **dsmsg) {
     Json::Value msgjson;
     Json::Reader reader;
-    Json::FastWriter writer;
     char msgbody_buffer[MESSAGE_BODY_MAX_LEN];
     DataStoreMsg_t *dsmsg_temp;
     
@@ -93,11 +92,9 @@ static int handle_collection_basic(amqp_envelope_t *envelope, DataStoreMsg_t **d
     strcpy(dsmsg_temp->name, author["name"].asCString());
     strcpy(dsmsg_temp->zone, author["zone"].asCString());
     
-    Json::Value body;
-    body["path"] = msgjson["path"];
-    body["entity"] = msgjson["entity"];
+    assert(envelope->message.body.len < MESSAGE_BODY_MAX_LEN);
     
-    strcpy(dsmsg_temp->body, writer.write(body).c_str());
+    memcpy(dsmsg_temp->body, envelope->message.body.bytes, envelope->message.body.len);
     
     *dsmsg = dsmsg_temp;
     return 0;
@@ -106,7 +103,6 @@ static int handle_collection_basic(amqp_envelope_t *envelope, DataStoreMsg_t **d
 static int handle_collection_acl(amqp_envelope_t *envelope, DataStoreMsg_t **dsmsg) {
     Json::Value msgjson;
     Json::Reader reader;
-    Json::FastWriter writer;
     char msgbody_buffer[MESSAGE_BODY_MAX_LEN];
     DataStoreMsg_t *dsmsg_temp;
     
@@ -143,14 +139,9 @@ static int handle_collection_acl(amqp_envelope_t *envelope, DataStoreMsg_t **dsm
     strcpy(dsmsg_temp->name, author["name"].asCString());
     strcpy(dsmsg_temp->zone, author["zone"].asCString());
     
-    Json::Value body;
-    body["entity"] = msgjson["entity"];
-    body["recursive"] = msgjson["recursive"];
-    body["permission"] = msgjson["permission"];
-    body["user"] = msgjson["user"];
-    body["inherit"] = msgjson["inherit"];
+    assert(envelope->message.body.len < MESSAGE_BODY_MAX_LEN);
     
-    strcpy(dsmsg_temp->body, writer.write(body).c_str());
+    memcpy(dsmsg_temp->body, envelope->message.body.bytes, envelope->message.body.len);
     
     *dsmsg = dsmsg_temp;
     return 0;
@@ -159,7 +150,6 @@ static int handle_collection_acl(amqp_envelope_t *envelope, DataStoreMsg_t **dsm
 static int handle_data_object_basic(amqp_envelope_t *envelope, DataStoreMsg_t **dsmsg) {
     Json::Value msgjson;
     Json::Reader reader;
-    Json::FastWriter writer;
     char msgbody_buffer[MESSAGE_BODY_MAX_LEN];
     DataStoreMsg_t *dsmsg_temp;
     
@@ -196,24 +186,9 @@ static int handle_data_object_basic(amqp_envelope_t *envelope, DataStoreMsg_t **
     strcpy(dsmsg_temp->name, author["name"].asCString());
     strcpy(dsmsg_temp->zone, author["zone"].asCString());
     
-    Json::Value body;
-    if(strcmp(dsmsg_temp->operation, "data-object.add") == 0) {
-        body["path"] = msgjson["path"];
-        body["entity"] = msgjson["entity"];
-        body["creator"] = msgjson["creator"];
-        body["size"] = msgjson["size"];
-        body["type"] = msgjson["type"];
-    } else if(strcmp(dsmsg_temp->operation, "data-object.mod") == 0) {
-        body["entity"] = msgjson["entity"];
-        body["creator"] = msgjson["creator"];
-        body["size"] = msgjson["size"];
-        body["type"] = msgjson["type"];
-    } else if(strcmp(dsmsg_temp->operation, "data-object.rm") == 0) {
-        body["path"] = msgjson["path"];
-        body["entity"] = msgjson["entity"];
-    }
+    assert(envelope->message.body.len < MESSAGE_BODY_MAX_LEN);
     
-    strcpy(dsmsg_temp->body, writer.write(body).c_str());
+    memcpy(dsmsg_temp->body, envelope->message.body.bytes, envelope->message.body.len);
     
     *dsmsg = dsmsg_temp;
     return 0;
@@ -222,7 +197,6 @@ static int handle_data_object_basic(amqp_envelope_t *envelope, DataStoreMsg_t **
 static int handle_data_object_acl(amqp_envelope_t *envelope, DataStoreMsg_t **dsmsg) {
     Json::Value msgjson;
     Json::Reader reader;
-    Json::FastWriter writer;
     char msgbody_buffer[MESSAGE_BODY_MAX_LEN];
     DataStoreMsg_t *dsmsg_temp;
     
@@ -259,12 +233,9 @@ static int handle_data_object_acl(amqp_envelope_t *envelope, DataStoreMsg_t **ds
     strcpy(dsmsg_temp->name, author["name"].asCString());
     strcpy(dsmsg_temp->zone, author["zone"].asCString());
     
-    Json::Value body;
-    body["entity"] = msgjson["entity"];
-    body["permission"] = msgjson["permission"];
-    body["user"] = msgjson["user"];
+    assert(envelope->message.body.len < MESSAGE_BODY_MAX_LEN);
     
-    strcpy(dsmsg_temp->body, writer.write(body).c_str());
+    memcpy(dsmsg_temp->body, envelope->message.body.bytes, envelope->message.body.len);
     
     *dsmsg = dsmsg_temp;
     return 0;
@@ -308,7 +279,7 @@ static int _process(DataStoreMsgReceiver_t *receiver, amqp_envelope_t *envelope)
             assert(dsmsg != NULL);
             
             memset(new_routing_key, 0, ROUTING_KEY_MAX_LEN);
-            sprintf(new_routing_key, "%s.%s.%s", dsmsg->zone, dsmsg->name, dsmsg->operation);
+            sprintf(new_routing_key, "%s", dsmsg->operation);
             
             memset(new_exchange, 0, CREDENTIAL_MAX_LEN);
             sprintf(new_exchange, "%s_%s", dsmsg->zone, dsmsg->name);
