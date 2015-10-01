@@ -157,6 +157,12 @@ int putMessage(GenericMsg_t *msg) {
     }
     
     pthread_mutex_lock(&g_MsgQueueLock);
+    if(g_MsgQueue.size() > 1000) {
+        pthread_mutex_unlock(&g_MsgQueueLock);
+        LOG4CXX_DEBUG(logger, "putMessage failed buffer overflow");
+        assert(g_MsgQueue.size() <= 1000);
+        return 1;
+    }
     g_MsgQueue.push(msg);
     pthread_mutex_unlock(&g_MsgQueueLock);
     

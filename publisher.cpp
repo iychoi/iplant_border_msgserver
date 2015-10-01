@@ -52,10 +52,10 @@ static void* _publisherThread(void* param) {
             if(it == publisher->exchanges.end()) {
                 amqp_exchange_declare_ok_t *exchange_status;
                 
-                LOG4CXX_DEBUG(logger, "_publisherThread: declaring an exchange");
+                LOG4CXX_DEBUG(logger, "_publisherThread: declaring an exchange : " << key);
                 
                 // declare an exchange
-                exchange_status = amqp_exchange_declare(publisher->conn_state, publisher->channel, amqp_cstring_bytes(msg->exchange), amqp_cstring_bytes("topic"), 0, 0, 1, 0, amqp_empty_table);
+                exchange_status = amqp_exchange_declare(publisher->conn_state, publisher->channel, amqp_cstring_bytes(msg->exchange), amqp_cstring_bytes("topic"), 0, 0, 0, 0, amqp_empty_table);
                 reply = amqp_get_rpc_reply(publisher->conn_state);
                 if(reply.reply_type != AMQP_RESPONSE_NORMAL) {
                     LOG4CXX_ERROR(logger, "_publisherThread: unable to declare an exchange");
