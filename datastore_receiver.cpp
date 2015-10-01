@@ -43,10 +43,12 @@ static int handle_data_object_acl(amqp_envelope_t *envelope, DataStoreMsg_t **ds
 const RoutingKeyHandlerEntry_t routing_keys[] = {
     (RoutingKeyHandlerEntry_t){ .keys = "collection.add", .handler = handle_collection_basic},
     (RoutingKeyHandlerEntry_t){ .keys = "collection.rm", .handler = handle_collection_basic},
+    (RoutingKeyHandlerEntry_t){ .keys = "collection.mv", .handler = handle_collection_basic},
     (RoutingKeyHandlerEntry_t){ .keys = "collection.acl.mod", .handler = handle_collection_acl},
     (RoutingKeyHandlerEntry_t){ .keys = "data-object.add", .handler = handle_data_object_basic},
     (RoutingKeyHandlerEntry_t){ .keys = "data-object.rm", .handler = handle_data_object_basic},
     (RoutingKeyHandlerEntry_t){ .keys = "data-object.mod", .handler = handle_data_object_basic},
+    (RoutingKeyHandlerEntry_t){ .keys = "data-object.mv", .handler = handle_data_object_basic},
     (RoutingKeyHandlerEntry_t){ .keys = "data-object.acl.mod", .handler = handle_data_object_acl}
 };
 
