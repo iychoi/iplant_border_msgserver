@@ -12,6 +12,9 @@ This program has dependencies following:
 - Log4cxx
 - RabbitMQ
 - RabbitMQ-c
+- iRODS fslib (under irodsfslib/)
+- iRODS network plugins (under irodsfslib/plugins_ARCH/network)
+
 
 Build
 -----
@@ -20,3 +23,6 @@ This program is created using "NetBeans IDE". To build, type:
 make
 ```
 
+Reference
+---------
+LRU cache code that the project uses is written by (SAURAV MOHAPATRA)[https://github.com/mohaps/lrucache].
