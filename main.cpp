@@ -16,6 +16,7 @@
 #include <log4cxx/helpers/exception.h>
 #include "common.hpp"
 #include "publisher.hpp"
+#include "datastore_client.hpp"
 #include "datastore_receiver.hpp"
 
 using namespace std;
@@ -27,6 +28,7 @@ using namespace std;
 #define LOG_CONFIG_XML "log4cxx.xml"
 #define PUBLISHER_CONFIG_JSON "publisher.json"
 #define DATASTORE_RECEIVER_CONFIG_JSON "datastore_receiver.json"
+#define DATASTORE_CLIENTCONFIG_JSON "datastore_client.json"
 
 static log4cxx::LoggerPtr logger(log4cxx::Logger::getLogger("main"));
 
@@ -55,7 +57,8 @@ int main(int argc, char** argv) {
     int status = 0;
     PublisherConf_t *publisher_conf;
     Publisher_t *publisher;
-    DataStoreConf_t *receiver_conf;
+    DataStoreMsgServerConf_t *receiver_conf;
+    fslibConf_t *client_conf;
     DataStoreMsgReceiver_t *receiver;
     
     LOG4CXX_DEBUG(logger, "iPlant Border Message Server is starting");
@@ -75,6 +78,21 @@ int main(int argc, char** argv) {
     }
     
     assert(publisher != NULL);
+    
+    status = readDataStoreClientConf((char*)DATASTORE_CLIENTCONFIG_JSON, &client_conf);
+    if(status != 0) {
+        LOG4CXX_ERROR(logger, "readDataStoreClientConf failed status = " << status);
+        return status;
+    }
+    
+    assert(client_conf != NULL);
+    
+    status = initDataStoreClient(client_conf);
+    
+    if(status != 0) {
+        LOG4CXX_ERROR(logger, "initDataStoreClient failed status = " << status);
+        return status;
+    }
     
     status = readDataStoreMsgReceiverConf((char*)DATASTORE_RECEIVER_CONFIG_JSON, &receiver_conf);
     if(status != 0) {
@@ -108,6 +126,14 @@ int main(int argc, char** argv) {
     }
     
     releaseDataStoreMsgReceiverConf(receiver_conf);
+    
+    status = destroyDataStoreClient();
+    if(status != 0) {
+        LOG4CXX_ERROR(logger, "destroyDataStoreClient failed status = " << status);
+        return status;
+    }
+    
+    releaseDataStoreClientConf(client_conf);
     
     status = releasePublisher(publisher);
     if(status != 0) {

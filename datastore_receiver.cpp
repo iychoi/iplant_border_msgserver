@@ -22,6 +22,7 @@
 #include <jsoncpp/json/writer.h>
 #include "common.hpp"
 #include "datastore_receiver.hpp"
+#include "datastore_client.hpp"
 #include "publisher.hpp"
 
 using namespace std;
@@ -47,7 +48,7 @@ const RoutingKeyHandlerEntry_t routing_keys[] = {
     (RoutingKeyHandlerEntry_t){ .keys = "data-object.rm", .handler = handle_basic},
     (RoutingKeyHandlerEntry_t){ .keys = "data-object.mod", .handler = handle_mod},
     (RoutingKeyHandlerEntry_t){ .keys = "data-object.mv", .handler = handle_basic},
-    (RoutingKeyHandlerEntry_t){ .keys = "data-object.acl.mod", .handler = handle_basic}
+    (RoutingKeyHandlerEntry_t){ .keys = "data-object.acl.mod", .handler = handle_mod}
 };
 
 /*
@@ -92,6 +93,10 @@ static int handle_basic(amqp_envelope_t *envelope, DataStoreMsg_t **dsmsg) {
     strcpy(dsmsg_temp->name, author["name"].asCString());
     strcpy(dsmsg_temp->zone, author["zone"].asCString());
     
+    if(!msgjson["entity"].isNull() && !msgjson["path"].isNull()) {
+        cacheUUIDtoPath(msgjson["entity"].asCString(), msgjson["path"].asCString());
+    }
+    
     assert(envelope->message.body.len < MESSAGE_BODY_MAX_LEN);
     
     memcpy(dsmsg_temp->body, envelope->message.body.bytes, envelope->message.body.len);
@@ -103,8 +108,11 @@ static int handle_basic(amqp_envelope_t *envelope, DataStoreMsg_t **dsmsg) {
 static int handle_mod(amqp_envelope_t *envelope, DataStoreMsg_t **dsmsg) {
     Json::Value msgjson;
     Json::Reader reader;
+    Json::FastWriter writer;
     char msgbody_buffer[MESSAGE_BODY_MAX_LEN];
+    char path_buffer[MAX_PATH_LEN];
     DataStoreMsg_t *dsmsg_temp;
+    int status;
     
     if(envelope == NULL) {
         LOG4CXX_ERROR(logger, "handle_mod: envelope is null");
@@ -139,9 +147,19 @@ static int handle_mod(amqp_envelope_t *envelope, DataStoreMsg_t **dsmsg) {
     strcpy(dsmsg_temp->name, author["name"].asCString());
     strcpy(dsmsg_temp->zone, author["zone"].asCString());
     
-    assert(envelope->message.body.len < MESSAGE_BODY_MAX_LEN);
+    if(!msgjson["entity"].isNull() && msgjson["path"].isNull()) {
+        status = convertUUIDtoPath(msgjson["entity"].asCString(), path_buffer);
+        if(status != 0) {
+            LOG4CXX_ERROR(logger, "handle_mod: unable to convert to path " << msgjson["entity"].asCString());
+            msgjson["path"] = "";
+        } else {
+            msgjson["path"] = path_buffer;
+        }
+    }
     
-    memcpy(dsmsg_temp->body, envelope->message.body.bytes, envelope->message.body.len);
+    //assert(envelope->message.body.len < MESSAGE_BODY_MAX_LEN);
+    //memcpy(dsmsg_temp->body, envelope->message.body.bytes, envelope->message.body.len);
+    strcpy(dsmsg_temp->body, writer.write(msgjson).c_str());
     
     *dsmsg = dsmsg_temp;
     return 0;
@@ -236,7 +254,7 @@ static void* _receiveThread(void* param) {
     receiver->thread_run = false;
 }
 
-static int _checkConnConf(DataStoreConf_t *conn) {
+static int _checkConnConf(DataStoreMsgServerConf_t *conn) {
     if(conn == NULL) {
         LOG4CXX_ERROR(logger, "_checkConnConf: conn is null");
         return EINVAL;
@@ -270,8 +288,8 @@ static int _checkConnConf(DataStoreConf_t *conn) {
     return 0;
 }
 
-int readDataStoreMsgReceiverConf(char *path, DataStoreConf_t **conf) {
-    DataStoreConf_t *handle;
+int readDataStoreMsgReceiverConf(char *path, DataStoreMsgServerConf_t **conf) {
+    DataStoreMsgServerConf_t *handle;
     Json::Value confjson;
     Json::Reader reader;
     ifstream istream;
@@ -299,7 +317,7 @@ int readDataStoreMsgReceiverConf(char *path, DataStoreConf_t **conf) {
     
     *conf = NULL;
     
-    handle = (DataStoreConf_t *)calloc(1, sizeof(DataStoreConf_t));
+    handle = (DataStoreMsgServerConf_t *)calloc(1, sizeof(DataStoreMsgServerConf_t));
     if(handle == NULL) {
         LOG4CXX_ERROR(logger, "readDataStoreMsgReceiverConf: not enough memory to allocate");
         return ENOMEM;
@@ -343,7 +361,7 @@ int readDataStoreMsgReceiverConf(char *path, DataStoreConf_t **conf) {
     return 0;
 }
 
-int releaseDataStoreMsgReceiverConf(DataStoreConf_t *conf) {
+int releaseDataStoreMsgReceiverConf(DataStoreMsgServerConf_t *conf) {
     int i;
     
     if(conf == NULL) {
@@ -366,7 +384,7 @@ int releaseDataStoreMsgReceiverConf(DataStoreConf_t *conf) {
     return 0;
 }
 
-int createDataStoreMsgReceiver(DataStoreConf_t *conf, Publisher_t *publisher, DataStoreMsgReceiver_t **receiver) {
+int createDataStoreMsgReceiver(DataStoreMsgServerConf_t *conf, Publisher_t *publisher, DataStoreMsgReceiver_t **receiver) {
     int status = 0;
     DataStoreMsgReceiver_t *handle;
     amqp_rpc_reply_t reply;

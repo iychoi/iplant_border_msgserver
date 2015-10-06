@@ -1,0 +1,7 @@
+{
+    "hostname":"$ICAT_HOST$",
+    "port":$ICAT_PORT$,
+    "user_id":"$ICAT_USER$",
+    "user_pwd":"$ICAT_PASSWORD$",
+    "zone":"$ICAT_ZONE$"
+}

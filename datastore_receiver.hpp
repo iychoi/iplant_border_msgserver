@@ -16,7 +16,7 @@
 
 #define MESSAGE_BODY_MAX_LEN  4096
 
-typedef struct _DataStoreConf {
+typedef struct _DataStoreMsgServerConf {
     char hostname[HOSTNAME_MAX_LEN];
     int port;
     char user_id[CREDENTIAL_MAX_LEN];
@@ -24,7 +24,7 @@ typedef struct _DataStoreConf {
     char exchange[CREDENTIAL_MAX_LEN];
     char **routing_keys;
     int routing_keys_len;
-} DataStoreConf_t;
+} DataStoreMsgServerConf_t;
 
 typedef struct _DataStoreMsgReceiver {
     pthread_t thread;
@@ -43,9 +43,9 @@ typedef struct _DataStoreMsg {
     char body[MESSAGE_BODY_MAX_LEN];
 } DataStoreMsg_t;
 
-int readDataStoreMsgReceiverConf(char *path, DataStoreConf_t **conf);
-int releaseDataStoreMsgReceiverConf(DataStoreConf_t *conf);
-int createDataStoreMsgReceiver(DataStoreConf_t *conf, Publisher_t *publisher, DataStoreMsgReceiver_t **receiver);
+int readDataStoreMsgReceiverConf(char *path, DataStoreMsgServerConf_t **conf);
+int releaseDataStoreMsgReceiverConf(DataStoreMsgServerConf_t *conf);
+int createDataStoreMsgReceiver(DataStoreMsgServerConf_t *conf, Publisher_t *publisher, DataStoreMsgReceiver_t **receiver);
 int releaseDataStoreMsgReceiver(DataStoreMsgReceiver_t *receiver);
 int runDataStoreMsgReceiver(DataStoreMsgReceiver_t *receiver);
 

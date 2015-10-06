@@ -12,6 +12,7 @@
 #define CREDENTIAL_MAX_LEN  64
 #define OPERATION_MAX_LEN  64
 #define ROUTING_KEY_MAX_LEN     256
+#define MAX_PATH_LEN        2048
 
 #endif	/* COMMON_HPP */
 

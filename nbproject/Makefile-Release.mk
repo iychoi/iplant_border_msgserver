@@ -35,6 +35,7 @@ OBJECTDIR=${CND_BUILDDIR}/${CND_CONF}/${CND_PLATFORM}
 
 # Object Files
 OBJECTFILES= \
+	${OBJECTDIR}/datastore_client.o \
 	${OBJECTDIR}/datastore_receiver.o \
 	${OBJECTDIR}/main.o \
 	${OBJECTDIR}/publisher.o
@@ -54,15 +55,22 @@ FFLAGS=
 ASFLAGS=
 
 # Link Libraries and Options
-LDLIBSOPTIONS=`pkg-config --libs librabbitmq` -lpthread  `pkg-config --libs liblog4cxx` `pkg-config --libs jsoncpp`  
+LDLIBSOPTIONS=`pkg-config --libs librabbitmq` -lpthread  `pkg-config --libs liblog4cxx` `pkg-config --libs jsoncpp` irodsfslib/libfslib.so  
 
 # Build Targets
 .build-conf: ${BUILD_SUBPROJECTS}
 	"${MAKE}"  -f nbproject/Makefile-${CND_CONF}.mk ${CND_DISTDIR}/${CND_CONF}/${CND_PLATFORM}/iplant_border_msg_server
 
+${CND_DISTDIR}/${CND_CONF}/${CND_PLATFORM}/iplant_border_msg_server: irodsfslib/libfslib.so
+
 ${CND_DISTDIR}/${CND_CONF}/${CND_PLATFORM}/iplant_border_msg_server: ${OBJECTFILES}
 	${MKDIR} -p ${CND_DISTDIR}/${CND_CONF}/${CND_PLATFORM}
 	${LINK.cc} -o ${CND_DISTDIR}/${CND_CONF}/${CND_PLATFORM}/iplant_border_msg_server ${OBJECTFILES} ${LDLIBSOPTIONS}
+
+${OBJECTDIR}/datastore_client.o: datastore_client.cpp 
+	${MKDIR} -p ${OBJECTDIR}
+	${RM} "$@.d"
+	$(COMPILE.cc) -O2 `pkg-config --cflags librabbitmq` `pkg-config --cflags liblog4cxx` `pkg-config --cflags jsoncpp`   -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/datastore_client.o datastore_client.cpp
 
 ${OBJECTDIR}/datastore_receiver.o: datastore_receiver.cpp 
 	${MKDIR} -p ${OBJECTDIR}

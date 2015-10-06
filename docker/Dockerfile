@@ -30,15 +30,6 @@ RUN dpkg -i rabbitmq-c_0.7.0-1_amd64.deb
 
 
 ##############################################
-# Border Message Server
-##############################################
-ADD messageserver /opt/messageserver
-RUN chmod +x /opt/messageserver/iplant_border_msg_server
-RUN chmod +x /opt/messageserver/Debug/iplant_border_msg_server
-RUN chmod +x /opt/messageserver/Release/iplant_border_msg_server
-
-
-##############################################
 # RabbitMQ
 ##############################################
 RUN apt-get install -y rabbitmq-server
@@ -48,6 +39,16 @@ RUN rabbitmq-plugins enable rabbitmq_management
 # expose rabbitmq_management user interface (port 15672) and rabbitmq service interface (port 5672)
 EXPOSE 15672
 EXPOSE 5672
+
+
+##############################################
+# Border Message Server
+##############################################
+ADD messageserver /opt/messageserver
+RUN chmod +x /opt/messageserver/iplant_border_msg_server
+RUN chmod +x /opt/messageserver/Debug/iplant_border_msg_server
+RUN chmod +x /opt/messageserver/Release/iplant_border_msg_server
+
 
 # script
 ADD initService.sh /initService.sh

@@ -10,6 +10,7 @@ rabbitmqctl set_user_tags $RBMQ_USER$ administrator ; \
 rabbitmqctl set_permissions -p / $RBMQ_USER$ ".*" ".*" ".*" ; \
 
 # Run message server
+export IRODS_PLUGINS_HOME="/opt/messageserver/irodsfslib/plugins/"
 cd /opt/messageserver/ && ./iplant_border_msg_server ; \
 
 ) &
