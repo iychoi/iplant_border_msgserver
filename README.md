@@ -25,4 +25,4 @@ make
 
 Reference
 ---------
-LRU cache code that the project uses is written by (SAURAV MOHAPATRA)[https://github.com/mohaps/lrucache].
+LRU cache code that the project uses is written by [SAURAV MOHAPATRA](https://github.com/mohaps/lrucache).
