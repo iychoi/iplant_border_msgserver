@@ -6,7 +6,6 @@
                    projectFiles="true">
       <itemPath>common.hpp</itemPath>
       <itemPath>datastore_receiver.hpp</itemPath>
-      <itemPath>msgbuffer.hpp</itemPath>
       <itemPath>publisher.hpp</itemPath>
     </logicalFolder>
     <logicalFolder name="ResourceFiles"
@@ -21,7 +20,6 @@
                    projectFiles="true">
       <itemPath>datastore_receiver.cpp</itemPath>
       <itemPath>main.cpp</itemPath>
-      <itemPath>msgbuffer.cpp</itemPath>
       <itemPath>publisher.cpp</itemPath>
     </logicalFolder>
     <logicalFolder name="TestFiles"
@@ -65,10 +63,6 @@
       <item path="log4cxx.xml" ex="false" tool="3" flavor2="0">
       </item>
       <item path="main.cpp" ex="false" tool="1" flavor2="0">
-      </item>
-      <item path="msgbuffer.cpp" ex="false" tool="1" flavor2="0">
-      </item>
-      <item path="msgbuffer.hpp" ex="false" tool="3" flavor2="0">
       </item>
       <item path="publisher.cpp" ex="false" tool="1" flavor2="0">
       </item>
@@ -116,10 +110,6 @@
       <item path="log4cxx.xml" ex="false" tool="3" flavor2="0">
       </item>
       <item path="main.cpp" ex="false" tool="1" flavor2="0">
-      </item>
-      <item path="msgbuffer.cpp" ex="false" tool="1" flavor2="0">
-      </item>
-      <item path="msgbuffer.hpp" ex="false" tool="3" flavor2="0">
       </item>
       <item path="publisher.cpp" ex="false" tool="1" flavor2="0">
       </item>

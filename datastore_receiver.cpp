@@ -21,8 +21,8 @@
 #include <pthread.h>
 #include <jsoncpp/json/writer.h>
 #include "common.hpp"
-#include "msgbuffer.hpp"
 #include "datastore_receiver.hpp"
+#include "publisher.hpp"
 
 using namespace std;
 
@@ -35,39 +35,37 @@ typedef struct _routing_key_handler_entry {
     RoutingKeyHandler handler;
 } RoutingKeyHandlerEntry_t;
 
-static int handle_collection_basic(amqp_envelope_t *envelope, DataStoreMsg_t **dsmsg);
-static int handle_collection_acl(amqp_envelope_t *envelope, DataStoreMsg_t **dsmsg);
-static int handle_data_object_basic(amqp_envelope_t *envelope, DataStoreMsg_t **dsmsg);
-static int handle_data_object_acl(amqp_envelope_t *envelope, DataStoreMsg_t **dsmsg);
+static int handle_basic(amqp_envelope_t *envelope, DataStoreMsg_t **dsmsg);
+static int handle_mod(amqp_envelope_t *envelope, DataStoreMsg_t **dsmsg);
 
 const RoutingKeyHandlerEntry_t routing_keys[] = {
-    (RoutingKeyHandlerEntry_t){ .keys = "collection.add", .handler = handle_collection_basic},
-    (RoutingKeyHandlerEntry_t){ .keys = "collection.rm", .handler = handle_collection_basic},
-    (RoutingKeyHandlerEntry_t){ .keys = "collection.mv", .handler = handle_collection_basic},
-    (RoutingKeyHandlerEntry_t){ .keys = "collection.acl.mod", .handler = handle_collection_acl},
-    (RoutingKeyHandlerEntry_t){ .keys = "data-object.add", .handler = handle_data_object_basic},
-    (RoutingKeyHandlerEntry_t){ .keys = "data-object.rm", .handler = handle_data_object_basic},
-    (RoutingKeyHandlerEntry_t){ .keys = "data-object.mod", .handler = handle_data_object_basic},
-    (RoutingKeyHandlerEntry_t){ .keys = "data-object.mv", .handler = handle_data_object_basic},
-    (RoutingKeyHandlerEntry_t){ .keys = "data-object.acl.mod", .handler = handle_data_object_acl}
+    (RoutingKeyHandlerEntry_t){ .keys = "collection.add", .handler = handle_basic},
+    (RoutingKeyHandlerEntry_t){ .keys = "collection.rm", .handler = handle_basic},
+    (RoutingKeyHandlerEntry_t){ .keys = "collection.mv", .handler = handle_basic},
+    (RoutingKeyHandlerEntry_t){ .keys = "collection.acl.mod", .handler = handle_basic},
+    (RoutingKeyHandlerEntry_t){ .keys = "data-object.add", .handler = handle_basic},
+    (RoutingKeyHandlerEntry_t){ .keys = "data-object.rm", .handler = handle_basic},
+    (RoutingKeyHandlerEntry_t){ .keys = "data-object.mod", .handler = handle_mod},
+    (RoutingKeyHandlerEntry_t){ .keys = "data-object.mv", .handler = handle_basic},
+    (RoutingKeyHandlerEntry_t){ .keys = "data-object.acl.mod", .handler = handle_basic}
 };
 
 /*
  * Receive messages from iplant datastore and send to processor through receiver
  */
-static int handle_collection_basic(amqp_envelope_t *envelope, DataStoreMsg_t **dsmsg) {
+static int handle_basic(amqp_envelope_t *envelope, DataStoreMsg_t **dsmsg) {
     Json::Value msgjson;
     Json::Reader reader;
     char msgbody_buffer[MESSAGE_BODY_MAX_LEN];
     DataStoreMsg_t *dsmsg_temp;
     
     if(envelope == NULL) {
-        LOG4CXX_ERROR(logger, "handle_collection_basic: envelope is null");
+        LOG4CXX_ERROR(logger, "handle_basic: envelope is null");
         return EINVAL;
     }
     
     if(dsmsg == NULL) {
-        LOG4CXX_ERROR(logger, "handle_collection_basic: dsmsg is null");
+        LOG4CXX_ERROR(logger, "handle_basic: dsmsg is null");
         return EINVAL;
     }
     
@@ -76,7 +74,7 @@ static int handle_collection_basic(amqp_envelope_t *envelope, DataStoreMsg_t **d
     
     bool parsed = reader.parse(msgbody_buffer, msgjson, false);
     if(!parsed) {
-        LOG4CXX_ERROR(logger, "handle_collection_basic: unable to parse message body");
+        LOG4CXX_ERROR(logger, "handle_basic: unable to parse message body");
         return EINVAL;
     }
     
@@ -84,7 +82,7 @@ static int handle_collection_basic(amqp_envelope_t *envelope, DataStoreMsg_t **d
     
     dsmsg_temp = (DataStoreMsg_t *)calloc(1, sizeof(DataStoreMsg_t));
     if(dsmsg_temp == NULL) {
-        LOG4CXX_ERROR(logger, "handle_collection_basic: not enough memory to allocate");
+        LOG4CXX_ERROR(logger, "handle_basic: not enough memory to allocate");
         return ENOMEM;
     }
     
@@ -102,19 +100,19 @@ static int handle_collection_basic(amqp_envelope_t *envelope, DataStoreMsg_t **d
     return 0;
 }
 
-static int handle_collection_acl(amqp_envelope_t *envelope, DataStoreMsg_t **dsmsg) {
+static int handle_mod(amqp_envelope_t *envelope, DataStoreMsg_t **dsmsg) {
     Json::Value msgjson;
     Json::Reader reader;
     char msgbody_buffer[MESSAGE_BODY_MAX_LEN];
     DataStoreMsg_t *dsmsg_temp;
     
     if(envelope == NULL) {
-        LOG4CXX_ERROR(logger, "handle_collection_acl: envelope is null");
+        LOG4CXX_ERROR(logger, "handle_mod: envelope is null");
         return EINVAL;
     }
     
     if(dsmsg == NULL) {
-        LOG4CXX_ERROR(logger, "handle_collection_acl: dsmsg is null");
+        LOG4CXX_ERROR(logger, "handle_mod: dsmsg is null");
         return EINVAL;
     }
     
@@ -123,7 +121,7 @@ static int handle_collection_acl(amqp_envelope_t *envelope, DataStoreMsg_t **dsm
     
     bool parsed = reader.parse(msgbody_buffer, msgjson, false);
     if(!parsed) {
-        LOG4CXX_ERROR(logger, "handle_collection_acl: unable to parse message body");
+        LOG4CXX_ERROR(logger, "handle_mod: unable to parse message body");
         return EINVAL;
     }
     
@@ -131,101 +129,7 @@ static int handle_collection_acl(amqp_envelope_t *envelope, DataStoreMsg_t **dsm
     
     dsmsg_temp = (DataStoreMsg_t *)calloc(1, sizeof(DataStoreMsg_t));
     if(dsmsg_temp == NULL) {
-        LOG4CXX_ERROR(logger, "handle_collection_acl: not enough memory to allocate");
-        return ENOMEM;
-    }
-    
-    memcpy(dsmsg_temp->operation, (char*)envelope->routing_key.bytes, envelope->routing_key.len);
-    
-    Json::Value author = msgjson["author"];
-    strcpy(dsmsg_temp->name, author["name"].asCString());
-    strcpy(dsmsg_temp->zone, author["zone"].asCString());
-    
-    assert(envelope->message.body.len < MESSAGE_BODY_MAX_LEN);
-    
-    memcpy(dsmsg_temp->body, envelope->message.body.bytes, envelope->message.body.len);
-    
-    *dsmsg = dsmsg_temp;
-    return 0;
-}
-
-static int handle_data_object_basic(amqp_envelope_t *envelope, DataStoreMsg_t **dsmsg) {
-    Json::Value msgjson;
-    Json::Reader reader;
-    char msgbody_buffer[MESSAGE_BODY_MAX_LEN];
-    DataStoreMsg_t *dsmsg_temp;
-    
-    if(envelope == NULL) {
-        LOG4CXX_ERROR(logger, "handle_data_object_basic: envelope is null");
-        return EINVAL;
-    }
-    
-    if(dsmsg == NULL) {
-        LOG4CXX_ERROR(logger, "handle_data_object_basic: dsmsg is null");
-        return EINVAL;
-    }
-    
-    memset(msgbody_buffer, 0, MESSAGE_BODY_MAX_LEN);
-    memcpy(msgbody_buffer, envelope->message.body.bytes, envelope->message.body.len);
-    
-    bool parsed = reader.parse(msgbody_buffer, msgjson, false);
-    if(!parsed) {
-        LOG4CXX_ERROR(logger, "handle_data_object_basic: unable to parse message body");
-        return EINVAL;
-    }
-    
-    *dsmsg = NULL;
-    
-    dsmsg_temp = (DataStoreMsg_t *)calloc(1, sizeof(DataStoreMsg_t));
-    if(dsmsg_temp == NULL) {
-        LOG4CXX_ERROR(logger, "handle_data_object_basic: not enough memory to allocate");
-        return ENOMEM;
-    }
-    
-    memcpy(dsmsg_temp->operation, (char*)envelope->routing_key.bytes, envelope->routing_key.len);
-    
-    Json::Value author = msgjson["author"];
-    strcpy(dsmsg_temp->name, author["name"].asCString());
-    strcpy(dsmsg_temp->zone, author["zone"].asCString());
-    
-    assert(envelope->message.body.len < MESSAGE_BODY_MAX_LEN);
-    
-    memcpy(dsmsg_temp->body, envelope->message.body.bytes, envelope->message.body.len);
-    
-    *dsmsg = dsmsg_temp;
-    return 0;
-}
-
-static int handle_data_object_acl(amqp_envelope_t *envelope, DataStoreMsg_t **dsmsg) {
-    Json::Value msgjson;
-    Json::Reader reader;
-    char msgbody_buffer[MESSAGE_BODY_MAX_LEN];
-    DataStoreMsg_t *dsmsg_temp;
-    
-    if(envelope == NULL) {
-        LOG4CXX_ERROR(logger, "handle_data_object_acl: envelope is null");
-        return EINVAL;
-    }
-    
-    if(dsmsg == NULL) {
-        LOG4CXX_ERROR(logger, "handle_data_object_acl: dsmsg is null");
-        return EINVAL;
-    }
-    
-    memset(msgbody_buffer, 0, MESSAGE_BODY_MAX_LEN);
-    memcpy(msgbody_buffer, envelope->message.body.bytes, envelope->message.body.len);
-    
-    bool parsed = reader.parse(msgbody_buffer, msgjson, false);
-    if(!parsed) {
-        LOG4CXX_ERROR(logger, "handle_data_object_acl: unable to parse message body");
-        return EINVAL;
-    }
-    
-    *dsmsg = NULL;
-    
-    dsmsg_temp = (DataStoreMsg_t *)calloc(1, sizeof(DataStoreMsg_t));
-    if(dsmsg_temp == NULL) {
-        LOG4CXX_ERROR(logger, "handle_data_object_acl: not enough memory to allocate");
+        LOG4CXX_ERROR(logger, "handle_mod: not enough memory to allocate");
         return ENOMEM;
     }
     
@@ -268,7 +172,6 @@ static int _process(DataStoreMsgReceiver_t *receiver, amqp_envelope_t *envelope)
         if(strcmp(routing_key, routing_keys[i].keys) == 0) {
             // call handler
             DataStoreMsg_t *dsmsg = NULL;
-            GenericMsg_t *gmsg = NULL;
             
             LOG4CXX_DEBUG(logger, "_process: routing_key = " << routing_key);
             
@@ -286,16 +189,11 @@ static int _process(DataStoreMsgReceiver_t *receiver, amqp_envelope_t *envelope)
             memset(new_exchange, 0, CREDENTIAL_MAX_LEN);
             sprintf(new_exchange, "%s_%s", dsmsg->zone, dsmsg->name);
             
-            status = createGenericMessage(new_exchange, new_routing_key, dsmsg->body, &gmsg);
-            if(status != 0) {
-                LOG4CXX_ERROR(logger, "_process: failed to create a generic message");
-                return EIO;
+            if(receiver->publisher != NULL) {
+                publish(receiver->publisher, new_exchange, new_routing_key, dsmsg->body);
             }
             
-            putMessage(gmsg);
-            
             free(dsmsg);
-            gmsg = NULL;
             return 0;
         }
     }
@@ -468,7 +366,7 @@ int releaseDataStoreMsgReceiverConf(DataStoreConf_t *conf) {
     return 0;
 }
 
-int createDataStoreMsgReceiver(DataStoreConf_t *conf, DataStoreMsgReceiver_t **receiver) {
+int createDataStoreMsgReceiver(DataStoreConf_t *conf, Publisher_t *publisher, DataStoreMsgReceiver_t **receiver) {
     int status = 0;
     DataStoreMsgReceiver_t *handle;
     amqp_rpc_reply_t reply;
@@ -479,6 +377,11 @@ int createDataStoreMsgReceiver(DataStoreConf_t *conf, DataStoreMsgReceiver_t **r
     if(status != 0) {
         LOG4CXX_ERROR(logger, "createDataStoreMsgReceiver: connection configuration check failed");
         return status;
+    }
+    
+    if(publisher == NULL) {
+        LOG4CXX_ERROR(logger, "createDataStoreMsgReceiver: publisher is null");
+        return EINVAL;
     }
     
     if(receiver == NULL) {
@@ -494,6 +397,7 @@ int createDataStoreMsgReceiver(DataStoreConf_t *conf, DataStoreMsgReceiver_t **r
         return ENOMEM;
     }
     
+    handle->publisher = publisher;
     handle->thread_run = false;
     
     LOG4CXX_DEBUG(logger, "createDataStoreMsgReceiver: creating a TCP connection to " << conf->hostname);

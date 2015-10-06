@@ -8,7 +8,6 @@
 #ifndef PUBLISHER_HPP
 #define	PUBLISHER_HPP
 
-#include <pthread.h>
 #include <amqp_tcp_socket.h>
 #include <amqp.h>
 #include <amqp_framing.h>
@@ -22,8 +21,6 @@ typedef struct _PublisherConf {
 } PublisherConf_t;
 
 typedef struct _Publisher {
-    pthread_t thread;
-    bool thread_run;
     amqp_socket_t *socket;
     amqp_connection_state_t conn_state;
     amqp_channel_t channel;
@@ -34,7 +31,7 @@ int readPublisherConf(char *path, PublisherConf_t **conf);
 int releasePublisherConf(PublisherConf_t *conf);
 int createPublisher(PublisherConf_t *conf, Publisher_t **publisher);
 int releasePublisher(Publisher_t *publisher);
-int runPublisher(Publisher_t *publisher);
+int publish(Publisher_t *publisher, const char *exchange, const char *routing_key, const char *body);
 
 #endif	/* PUBLISHER_HPP */
 

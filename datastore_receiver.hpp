@@ -12,6 +12,7 @@
 #include <amqp.h>
 #include <amqp_framing.h>
 #include "common.hpp"
+#include "publisher.hpp"
 
 #define MESSAGE_BODY_MAX_LEN  4096
 
@@ -32,6 +33,7 @@ typedef struct _DataStoreMsgReceiver {
     amqp_connection_state_t conn_state;
     amqp_channel_t channel;
     amqp_bytes_t queuename;
+    Publisher_t *publisher;
 } DataStoreMsgReceiver_t;
 
 typedef struct _DataStoreMsg {
@@ -43,7 +45,7 @@ typedef struct _DataStoreMsg {
 
 int readDataStoreMsgReceiverConf(char *path, DataStoreConf_t **conf);
 int releaseDataStoreMsgReceiverConf(DataStoreConf_t *conf);
-int createDataStoreMsgReceiver(DataStoreConf_t *conf, DataStoreMsgReceiver_t **receiver);
+int createDataStoreMsgReceiver(DataStoreConf_t *conf, Publisher_t *publisher, DataStoreMsgReceiver_t **receiver);
 int releaseDataStoreMsgReceiver(DataStoreMsgReceiver_t *receiver);
 int runDataStoreMsgReceiver(DataStoreMsgReceiver_t *receiver);
 

@@ -15,7 +15,6 @@
 #include <log4cxx/xml/domconfigurator.h>
 #include <log4cxx/helpers/exception.h>
 #include "common.hpp"
-#include "msgbuffer.hpp"
 #include "publisher.hpp"
 #include "datastore_receiver.hpp"
 
@@ -61,8 +60,6 @@ int main(int argc, char** argv) {
     
     LOG4CXX_DEBUG(logger, "iPlant Border Message Server is starting");
     
-    initMsgBuffer();
-    
     status = readPublisherConf((char*)PUBLISHER_CONFIG_JSON, &publisher_conf);
     if(status != 0) {
         LOG4CXX_ERROR(logger, "readPublisherConf failed status = " << status);
@@ -79,12 +76,6 @@ int main(int argc, char** argv) {
     
     assert(publisher != NULL);
     
-    status = runPublisher(publisher);
-    if(status != 0) {
-        LOG4CXX_ERROR(logger, "runPublisher failed status = " << status);
-        return status;
-    }
-    
     status = readDataStoreMsgReceiverConf((char*)DATASTORE_RECEIVER_CONFIG_JSON, &receiver_conf);
     if(status != 0) {
         LOG4CXX_ERROR(logger, "readDataStoreMsgReceiverConf failed status = " << status);
@@ -93,7 +84,7 @@ int main(int argc, char** argv) {
     
     assert(receiver_conf != NULL);
     
-    status = createDataStoreMsgReceiver(receiver_conf, &receiver);
+    status = createDataStoreMsgReceiver(receiver_conf, publisher, &receiver);
     if(status != 0) {
         LOG4CXX_ERROR(logger, "createDataStoreMsgReceiver failed status = " << status);
         return status;
@@ -125,8 +116,6 @@ int main(int argc, char** argv) {
     }
     
     releasePublisherConf(publisher_conf);
-    
-    destroyMsgBuffer();
     return 0;
 }
 
