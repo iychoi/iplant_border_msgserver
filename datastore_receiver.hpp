@@ -41,6 +41,7 @@ typedef struct _DataStoreMsg {
     char name[CREDENTIAL_MAX_LEN];
     char operation[OPERATION_MAX_LEN];
     char body[MESSAGE_BODY_MAX_LEN];
+    struct _DataStoreMsg *next;
 } DataStoreMsg_t;
 
 int readDataStoreMsgReceiverConf(char *path, DataStoreMsgServerConf_t **conf);

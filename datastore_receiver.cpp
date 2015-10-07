@@ -20,6 +20,7 @@
 #include <fstream>
 #include <pthread.h>
 #include <jsoncpp/json/writer.h>
+#include <list>
 #include "common.hpp"
 #include "datastore_receiver.hpp"
 #include "datastore_client.hpp"
@@ -54,11 +55,119 @@ const RoutingKeyHandlerEntry_t routing_keys[] = {
 /*
  * Receive messages from iplant datastore and send to processor through receiver
  */
+static int extract_zone_name(const char* path, char *zone, char *name) {
+    char* ptr = NULL;
+    char* pzone = NULL;
+    char* phome = NULL;
+    char* pname = NULL;
+    
+    if(path == NULL) {
+        LOG4CXX_ERROR(logger, "extract_zone_name: path is null");
+        return EINVAL;
+    }
+    
+    if(zone == NULL) {
+        LOG4CXX_ERROR(logger, "extract_zone_name: zone is null");
+        return EINVAL;
+    }
+    
+    if(name == NULL) {
+        LOG4CXX_ERROR(logger, "extract_zone_name: name is null");
+        return EINVAL;
+    }
+    
+    if(path[0] == 0) {
+        LOG4CXX_ERROR(logger, "extract_zone_name: path is empty");
+        return EINVAL;
+    }
+    
+    if(path[0] != '/') {
+        LOG4CXX_ERROR(logger, "extract_zone_name: path is not absolute");
+        return EINVAL;
+    }
+    
+    // zone
+    pzone = (char*)path + 1;
+    ptr = strchr((char*)path + 1, '/');
+    if(ptr != NULL) {
+        // has zone
+        strncpy(zone, pzone, ptr - pzone);
+        
+        phome = ptr + 1;
+        if(strncmp(phome, "home", 4) == 0) {
+            ptr = phome + 4;
+            if(ptr[0] == '/') {
+                // has user
+                pname = ptr + 1;
+                
+                ptr = strchr(pname, '/');
+                if(ptr != NULL) {
+                    strncpy(name, pname, ptr - pname);
+                    return 0;
+                }
+            }
+        }
+    }
+    
+    LOG4CXX_ERROR(logger, "extract_zone_name: path does not have zone or user");
+    return EINVAL;
+}
+
+static int create_datastoremsg(const char *operation, const char *zone, const char *name, const char *body, DataStoreMsg_t **dsmsg) {
+    DataStoreMsg_t *dsmsg_temp;
+    
+    if(operation == NULL) {
+        LOG4CXX_ERROR(logger, "create_datastoremsg: operation is null");
+        return EINVAL;
+    }
+    
+    if(zone == NULL) {
+        LOG4CXX_ERROR(logger, "create_datastoremsg: zone is null");
+        return EINVAL;
+    }
+    
+    if(name == NULL) {
+        LOG4CXX_ERROR(logger, "create_datastoremsg: name is null");
+        return EINVAL;
+    }
+    
+    if(body == NULL) {
+        LOG4CXX_ERROR(logger, "create_datastoremsg: body is null");
+        return EINVAL;
+    }
+    
+    if(dsmsg == NULL) {
+        LOG4CXX_ERROR(logger, "create_datastoremsg: dsmsg is null");
+        return EINVAL;
+    }
+    
+    *dsmsg = NULL;
+    
+    dsmsg_temp = (DataStoreMsg_t *)calloc(1, sizeof(DataStoreMsg_t));
+    if(dsmsg_temp == NULL) {
+        LOG4CXX_ERROR(logger, "create_datastoremsg: not enough memory to allocate");
+        return ENOMEM;
+    }
+    
+    strcpy(dsmsg_temp->operation, operation);
+    strcpy(dsmsg_temp->zone, zone);
+    strcpy(dsmsg_temp->name, name);
+    strcpy(dsmsg_temp->body, body);
+    
+    *dsmsg = dsmsg_temp;
+    return 0;
+}
+
 static int handle_basic(amqp_envelope_t *envelope, DataStoreMsg_t **dsmsg) {
     Json::Value msgjson;
     Json::Reader reader;
-    char msgbody_buffer[MESSAGE_BODY_MAX_LEN];
-    DataStoreMsg_t *dsmsg_temp;
+    char msgbody[MESSAGE_BODY_MAX_LEN];
+    char msgoperation[OPERATION_MAX_LEN];
+    DataStoreMsg_t *dsmsg_front = NULL;
+    DataStoreMsg_t *dsmsg_cur = NULL;
+    int status = 0;
+    std::list<std::string> zonename;
+    std::list<std::string>::iterator zonename_it;
     
     if(envelope == NULL) {
         LOG4CXX_ERROR(logger, "handle_basic: envelope is null");
@@ -70,38 +179,126 @@ static int handle_basic(amqp_envelope_t *envelope, DataStoreMsg_t **dsmsg) {
         return EINVAL;
     }
     
-    memset(msgbody_buffer, 0, MESSAGE_BODY_MAX_LEN);
-    memcpy(msgbody_buffer, envelope->message.body.bytes, envelope->message.body.len);
+    assert(envelope->message.body.len < MESSAGE_BODY_MAX_LEN);
     
-    bool parsed = reader.parse(msgbody_buffer, msgjson, false);
+    memset(msgbody, 0, MESSAGE_BODY_MAX_LEN);
+    memcpy(msgbody, envelope->message.body.bytes, envelope->message.body.len);
+    
+    bool parsed = reader.parse(msgbody, msgjson, false);
     if(!parsed) {
         LOG4CXX_ERROR(logger, "handle_basic: unable to parse message body");
         return EINVAL;
     }
     
-    *dsmsg = NULL;
-    
-    dsmsg_temp = (DataStoreMsg_t *)calloc(1, sizeof(DataStoreMsg_t));
-    if(dsmsg_temp == NULL) {
-        LOG4CXX_ERROR(logger, "handle_basic: not enough memory to allocate");
-        return ENOMEM;
-    }
-    
-    memcpy(dsmsg_temp->operation, (char*)envelope->routing_key.bytes, envelope->routing_key.len);
-    
-    Json::Value author = msgjson["author"];
-    strcpy(dsmsg_temp->name, author["name"].asCString());
-    strcpy(dsmsg_temp->zone, author["zone"].asCString());
-    
+    // cache for later
     if(!msgjson["entity"].isNull() && !msgjson["path"].isNull()) {
         cacheUUIDtoPath(msgjson["entity"].asCString(), msgjson["path"].asCString());
     }
     
-    assert(envelope->message.body.len < MESSAGE_BODY_MAX_LEN);
+    // create obj
+    *dsmsg = NULL;
+    memset(msgoperation, 0, OPERATION_MAX_LEN);
+    memcpy(msgoperation, (char*)envelope->routing_key.bytes, envelope->routing_key.len);
+
+    if(!msgjson["author"].isNull()) {
+        DataStoreMsg_t *dsmsg_tmp = NULL;
+        
+        Json::Value author = msgjson["author"];
+        
+        status = create_datastoremsg(msgoperation, author["zone"].asCString(), author["name"].asCString(), msgbody, &dsmsg_tmp);
+        if(status != 0) {
+            LOG4CXX_ERROR(logger, "handle_basic: unable to create data store message object");
+            return EINVAL;
+        }
+        
+        std::string zn("");
+        zn += dsmsg_tmp->zone;
+        zn += "_";
+        zn += dsmsg_tmp->name;
+        
+        bool exist = false;
+        for(zonename_it = zonename.begin();zonename_it != zonename.end();zonename_it++) {
+            std::string exzn = *zonename_it;
+            if(exzn == zn) {
+                exist = true;
+                break;
+            }
+        }
+        
+        if(!exist) {
+            zonename.push_back(zn);
+            
+            if(dsmsg_front == NULL) {
+                dsmsg_front = dsmsg_tmp;
+            }
+
+            if(dsmsg_cur == NULL) {
+                dsmsg_cur = dsmsg_tmp;
+            } else {
+                dsmsg_cur->next = dsmsg_tmp;
+                dsmsg_cur = dsmsg_cur->next;
+            }
+        } else {
+            free(dsmsg_tmp);
+        }
+    }
     
-    memcpy(dsmsg_temp->body, envelope->message.body.bytes, envelope->message.body.len);
+    if(!msgjson["path"].isNull()) {
+        DataStoreMsg_t *dsmsg_tmp = NULL;
+        char zone[CREDENTIAL_MAX_LEN];
+        char name[CREDENTIAL_MAX_LEN];
+        
+        memset(zone, 0, CREDENTIAL_MAX_LEN);
+        memset(name, 0, CREDENTIAL_MAX_LEN);
+        
+        Json::Value path = msgjson["path"];
+        if(extract_zone_name(path.asCString(), zone, name) == 0) {
+            // succeed
+            LOG4CXX_DEBUG(logger, "handle_basic: zone(" << zone << "), name(" << name << ")");
+            
+            status = create_datastoremsg(msgoperation, zone, name, msgbody, &dsmsg_tmp);
+            if(status != 0) {
+                LOG4CXX_ERROR(logger, "handle_basic: unable to create data store message object");
+                return EINVAL;
+            }
+
+            std::string zn("");
+            zn += dsmsg_tmp->zone;
+            zn += "_";
+            zn += dsmsg_tmp->name;
+
+            bool exist = false;
+            for(zonename_it = zonename.begin();zonename_it != zonename.end();zonename_it++) {
+                std::string exzn = *zonename_it;
+                if(exzn == zn) {
+                    exist = true;
+                    break;
+                }
+            }
+
+            if(!exist) {
+                zonename.push_back(zn);
+
+                if(dsmsg_front == NULL) {
+                    dsmsg_front = dsmsg_tmp;
+                }
+
+                if(dsmsg_cur == NULL) {
+                    dsmsg_cur = dsmsg_tmp;
+                } else {
+                    dsmsg_cur->next = dsmsg_tmp;
+                    dsmsg_cur = dsmsg_cur->next;
+                }
+            } else {
+                free(dsmsg_tmp);
+            }
+        } else {
+            // fails
+            LOG4CXX_ERROR(logger, "handle_basic: incomplete message - path field does not have zone/user: " << msgbody);
+        }
+    }
     
-    *dsmsg = dsmsg_temp;
+    *dsmsg = dsmsg_front;
     return 0;
 }
 
@@ -109,10 +306,14 @@ static int handle_mod(amqp_envelope_t *envelope, DataStoreMsg_t **dsmsg) {
     Json::Value msgjson;
     Json::Reader reader;
     Json::FastWriter writer;
-    char msgbody_buffer[MESSAGE_BODY_MAX_LEN];
+    char msgbody[MESSAGE_BODY_MAX_LEN];
+    char msgoperation[OPERATION_MAX_LEN];
     char path_buffer[MAX_PATH_LEN];
-    DataStoreMsg_t *dsmsg_temp;
-    int status;
+    DataStoreMsg_t *dsmsg_front = NULL;
+    DataStoreMsg_t *dsmsg_cur = NULL;
+    int status = 0;
+    std::list<std::string> zonename;
+    std::list<std::string>::iterator zonename_it;
     
     if(envelope == NULL) {
         LOG4CXX_ERROR(logger, "handle_mod: envelope is null");
@@ -124,44 +325,131 @@ static int handle_mod(amqp_envelope_t *envelope, DataStoreMsg_t **dsmsg) {
         return EINVAL;
     }
     
-    memset(msgbody_buffer, 0, MESSAGE_BODY_MAX_LEN);
-    memcpy(msgbody_buffer, envelope->message.body.bytes, envelope->message.body.len);
+    assert(envelope->message.body.len < MESSAGE_BODY_MAX_LEN);
     
-    bool parsed = reader.parse(msgbody_buffer, msgjson, false);
+    memset(msgbody, 0, MESSAGE_BODY_MAX_LEN);
+    memcpy(msgbody, envelope->message.body.bytes, envelope->message.body.len);
+    
+    bool parsed = reader.parse(msgbody, msgjson, false);
     if(!parsed) {
         LOG4CXX_ERROR(logger, "handle_mod: unable to parse message body");
         return EINVAL;
     }
     
+    // create obj
     *dsmsg = NULL;
-    
-    dsmsg_temp = (DataStoreMsg_t *)calloc(1, sizeof(DataStoreMsg_t));
-    if(dsmsg_temp == NULL) {
-        LOG4CXX_ERROR(logger, "handle_mod: not enough memory to allocate");
-        return ENOMEM;
-    }
-    
-    memcpy(dsmsg_temp->operation, (char*)envelope->routing_key.bytes, envelope->routing_key.len);
-    
-    Json::Value author = msgjson["author"];
-    strcpy(dsmsg_temp->name, author["name"].asCString());
-    strcpy(dsmsg_temp->zone, author["zone"].asCString());
+    memset(msgoperation, 0, OPERATION_MAX_LEN);
+    memcpy(msgoperation, (char*)envelope->routing_key.bytes, envelope->routing_key.len);
     
     if(!msgjson["entity"].isNull() && msgjson["path"].isNull()) {
         status = convertUUIDtoPath(msgjson["entity"].asCString(), path_buffer);
         if(status != 0) {
             LOG4CXX_ERROR(logger, "handle_mod: unable to convert to path " << msgjson["entity"].asCString());
-            msgjson["path"] = "";
         } else {
             msgjson["path"] = path_buffer;
+            strcpy(msgbody, writer.write(msgjson).c_str());
         }
     }
     
-    //assert(envelope->message.body.len < MESSAGE_BODY_MAX_LEN);
-    //memcpy(dsmsg_temp->body, envelope->message.body.bytes, envelope->message.body.len);
-    strcpy(dsmsg_temp->body, writer.write(msgjson).c_str());
+    if(!msgjson["author"].isNull()) {
+        DataStoreMsg_t *dsmsg_tmp = NULL;
+        
+        Json::Value author = msgjson["author"];
+        
+        status = create_datastoremsg(msgoperation, author["zone"].asCString(), author["name"].asCString(), msgbody, &dsmsg_tmp);
+        if(status != 0) {
+            LOG4CXX_ERROR(logger, "handle_mod: unable to create data store message object");
+            return EINVAL;
+        }
+        
+        std::string zn("");
+        zn += dsmsg_tmp->zone;
+        zn += "_";
+        zn += dsmsg_tmp->name;
+        
+        bool exist = false;
+        for(zonename_it = zonename.begin();zonename_it != zonename.end();zonename_it++) {
+            std::string exzn = *zonename_it;
+            if(exzn == zn) {
+                exist = true;
+                break;
+            }
+        }
+        
+        if(!exist) {
+            zonename.push_back(zn);
+            
+            if(dsmsg_front == NULL) {
+                dsmsg_front = dsmsg_tmp;
+            }
+
+            if(dsmsg_cur == NULL) {
+                dsmsg_cur = dsmsg_tmp;
+            } else {
+                dsmsg_cur->next = dsmsg_tmp;
+                dsmsg_cur = dsmsg_cur->next;
+            }
+        } else {
+            free(dsmsg_tmp);
+        }
+    }
     
-    *dsmsg = dsmsg_temp;
+    if(!msgjson["path"].isNull()) {
+        DataStoreMsg_t *dsmsg_tmp = NULL;
+        char zone[CREDENTIAL_MAX_LEN];
+        char name[CREDENTIAL_MAX_LEN];
+        
+        memset(zone, 0, CREDENTIAL_MAX_LEN);
+        memset(name, 0, CREDENTIAL_MAX_LEN);
+        
+        Json::Value path = msgjson["path"];
+        if(extract_zone_name(path.asCString(), zone, name) == 0) {
+            // succeed
+            LOG4CXX_DEBUG(logger, "handle_mod: zone(" << zone << "), name(" << name << ")");
+            
+            status = create_datastoremsg(msgoperation, zone, name, msgbody, &dsmsg_tmp);
+            if(status != 0) {
+                LOG4CXX_ERROR(logger, "handle_mod: unable to create data store message object");
+                return EINVAL;
+            }
+
+            std::string zn("");
+            zn += dsmsg_tmp->zone;
+            zn += "_";
+            zn += dsmsg_tmp->name;
+
+            bool exist = false;
+            for(zonename_it = zonename.begin();zonename_it != zonename.end();zonename_it++) {
+                std::string exzn = *zonename_it;
+                if(exzn == zn) {
+                    exist = true;
+                    break;
+                }
+            }
+
+            if(!exist) {
+                zonename.push_back(zn);
+
+                if(dsmsg_front == NULL) {
+                    dsmsg_front = dsmsg_tmp;
+                }
+
+                if(dsmsg_cur == NULL) {
+                    dsmsg_cur = dsmsg_tmp;
+                } else {
+                    dsmsg_cur->next = dsmsg_tmp;
+                    dsmsg_cur = dsmsg_cur->next;
+                }
+            } else {
+                free(dsmsg_tmp);
+            }
+        } else {
+            // fails
+            LOG4CXX_ERROR(logger, "handle_mod: incomplete message - path field does not have zone/user: " << msgbody);
+        }
+    }
+    
+    *dsmsg = dsmsg_front;
     return 0;
 }
 
@@ -188,30 +476,36 @@ static int _process(DataStoreMsgReceiver_t *receiver, amqp_envelope_t *envelope)
     // check accept
     for(i=0;i<sizeof(routing_keys);i++) {
         if(strcmp(routing_key, routing_keys[i].keys) == 0) {
-            // call handler
             DataStoreMsg_t *dsmsg = NULL;
+            DataStoreMsg_t *pdsmsg = NULL;
             
             LOG4CXX_DEBUG(logger, "_process: routing_key = " << routing_key);
             
+            // call handler
             status = routing_keys[i].handler(envelope, &dsmsg);
             if(status != 0) {
                 LOG4CXX_ERROR(logger, "_process: failed to call handler");
                 return EIO;
             }
             
-            assert(dsmsg != NULL);
-            
-            memset(new_routing_key, 0, ROUTING_KEY_MAX_LEN);
-            sprintf(new_routing_key, "%s", dsmsg->operation);
-            
-            memset(new_exchange, 0, CREDENTIAL_MAX_LEN);
-            sprintf(new_exchange, "%s_%s", dsmsg->zone, dsmsg->name);
-            
-            if(receiver->publisher != NULL) {
-                publish(receiver->publisher, new_exchange, new_routing_key, dsmsg->body);
+            pdsmsg = dsmsg;
+            while(pdsmsg != NULL) {
+                DataStoreMsg_t *olddsmsg = pdsmsg;
+                
+                memset(new_routing_key, 0, ROUTING_KEY_MAX_LEN);
+                sprintf(new_routing_key, "%s", pdsmsg->operation);
+
+                memset(new_exchange, 0, CREDENTIAL_MAX_LEN);
+                sprintf(new_exchange, "%s_%s", pdsmsg->zone, pdsmsg->name);
+
+                if(receiver->publisher != NULL) {
+                    publish(receiver->publisher, new_exchange, new_routing_key, pdsmsg->body);
+                }
+
+                pdsmsg = pdsmsg->next;
+                free(olddsmsg);
             }
             
-            free(dsmsg);
             return 0;
         }
     }

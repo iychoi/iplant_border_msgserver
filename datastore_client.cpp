@@ -26,7 +26,7 @@ using namespace std;
 
 static log4cxx::LoggerPtr logger(log4cxx::Logger::getLogger("datastore_client"));
 
-static lru::Cache<string, string> g_uuid_path_cache(1024*1024, 1024);
+static lru::Cache<string, string> g_uuid_path_cache(10240, 100);
 
 /*
  * 
