@@ -17,9 +17,7 @@
 #include <fstream>
 #include <jsoncpp/json/writer.h>
 #include "common.hpp"
-#include "irodsfslib/libfslib.hpp"
-#include "irodsfslib/libfslib.conf.hpp"
-#include "irodsfslib/libfslib.operations.hpp"
+#include "irodsfs/libirodsfs.hpp"
 #include "lrucache.hpp"
 
 using namespace std;
@@ -31,7 +29,7 @@ static lru::Cache<string, string> g_uuid_path_cache(10240, 100);
 /*
  * 
  */
-int initDataStoreClient(fslibConf_t *conf) {
+int initDataStoreClient(irodsfsConf_t *conf) {
     int status = 0;
     
     if(conf == NULL) {
@@ -39,7 +37,7 @@ int initDataStoreClient(fslibConf_t *conf) {
         return EINVAL;
     }
     
-    status = fslibInit(conf, NULL);
+    status = irodsfsInit(conf, NULL);
     if(status != 0) {
         LOG4CXX_ERROR(logger, "initDataStoreClient: unable to init data store client");
         return status;
@@ -47,11 +45,11 @@ int initDataStoreClient(fslibConf_t *conf) {
 }
 
 int destroyDataStoreClient() {
-    return fslibDestroy();
+    return irodsfsDestroy();
 }
 
-int readDataStoreClientConf(char *path, fslibConf_t **conf) {
-    fslibConf_t *handle;
+int readDataStoreClientConf(char *path, irodsfsConf_t **conf) {
+    irodsfsConf_t *handle;
     Json::Value confjson;
     Json::Reader reader;
     ifstream istream;
@@ -76,7 +74,7 @@ int readDataStoreClientConf(char *path, fslibConf_t **conf) {
     
     *conf = NULL;
     
-    handle = (fslibConf_t *)calloc(1, sizeof(fslibConf_t));
+    handle = (irodsfsConf_t *)calloc(1, sizeof(irodsfsConf_t));
     if(handle == NULL) {
         LOG4CXX_ERROR(logger, "readDataStoreClientConf: not enough memory to allocate");
         return ENOMEM;
@@ -93,7 +91,7 @@ int readDataStoreClientConf(char *path, fslibConf_t **conf) {
     return 0;
 }
 
-int releaseDataStoreClientConf(fslibConf_t *conf) {
+int releaseDataStoreClientConf(irodsfsConf_t *conf) {
     if(conf == NULL) {
         LOG4CXX_ERROR(logger, "releaseDataStoreClientConf: conf is null");
         return EINVAL;
@@ -161,9 +159,9 @@ int convertUUIDtoPath(const char *uuid, char *buf) {
     
     g_ResultSet = false;
     
-    status = fslibQueryDataObject("ipc_UUID", "=", uuid, queryResultFiller);
+    status = irodsfsQueryDataObject("ipc_UUID", "=", uuid, queryResultFiller);
     if(status != 0) {
-        LOG4CXX_ERROR(logger, "convertUUIDtoPath: fslibQueryDataObject failed status = " << status);
+        LOG4CXX_ERROR(logger, "convertUUIDtoPath: irodsfsQueryDataObject failed status = " << status);
         return status;
     }
     

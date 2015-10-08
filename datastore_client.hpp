@@ -9,14 +9,12 @@
 #define	DATASTORE_CLIENT_HPP
 
 #include "common.hpp"
-#include "irodsfslib/libfslib.hpp"
-#include "irodsfslib/libfslib.conf.hpp"
-#include "irodsfslib/libfslib.operations.hpp"
+#include "irodsfs/libirodsfs.hpp"
 
-int initDataStoreClient(fslibConf_t *conf);
+int initDataStoreClient(irodsfsConf_t *conf);
 int destroyDataStoreClient();
-int readDataStoreClientConf(char *path, fslibConf_t **conf);
-int releaseDataStoreClientConf(fslibConf_t *conf);
+int readDataStoreClientConf(char *path, irodsfsConf_t **conf);
+int releaseDataStoreClientConf(irodsfsConf_t *conf);
 
 int cacheUUIDtoPath(const char *uuid, const char *path);
 int convertUUIDtoPath(const char *uuid, char *buf);

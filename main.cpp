@@ -58,7 +58,7 @@ int main(int argc, char** argv) {
     PublisherConf_t *publisher_conf;
     Publisher_t *publisher;
     DataStoreMsgServerConf_t *receiver_conf;
-    fslibConf_t *client_conf;
+    irodsfsConf_t *client_conf;
     DataStoreMsgReceiver_t *receiver;
     
     LOG4CXX_DEBUG(logger, "iPlant Border Message Server is starting");

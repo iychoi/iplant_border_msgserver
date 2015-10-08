@@ -55,13 +55,13 @@ FFLAGS=
 ASFLAGS=
 
 # Link Libraries and Options
-LDLIBSOPTIONS=`pkg-config --libs librabbitmq` -lpthread  `pkg-config --libs liblog4cxx` `pkg-config --libs jsoncpp` irodsfslib/libfslib.so  
+LDLIBSOPTIONS=`pkg-config --libs librabbitmq` -lpthread  `pkg-config --libs liblog4cxx` `pkg-config --libs jsoncpp` irodsfs/libirodsfs.so  
 
 # Build Targets
 .build-conf: ${BUILD_SUBPROJECTS}
 	"${MAKE}"  -f nbproject/Makefile-${CND_CONF}.mk ${CND_DISTDIR}/${CND_CONF}/${CND_PLATFORM}/iplant_border_msg_server
 
-${CND_DISTDIR}/${CND_CONF}/${CND_PLATFORM}/iplant_border_msg_server: irodsfslib/libfslib.so
+${CND_DISTDIR}/${CND_CONF}/${CND_PLATFORM}/iplant_border_msg_server: irodsfs/libirodsfs.so
 
 ${CND_DISTDIR}/${CND_CONF}/${CND_PLATFORM}/iplant_border_msg_server: ${OBJECTFILES}
 	${MKDIR} -p ${CND_DISTDIR}/${CND_CONF}/${CND_PLATFORM}

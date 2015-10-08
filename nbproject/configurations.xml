@@ -53,7 +53,7 @@
             <linkerLibStdlibItem>PosixThreads</linkerLibStdlibItem>
             <linkerOptionItem>`pkg-config --libs liblog4cxx`</linkerOptionItem>
             <linkerOptionItem>`pkg-config --libs jsoncpp`</linkerOptionItem>
-            <linkerLibFileItem>irodsfslib/libfslib.so</linkerLibFileItem>
+            <linkerLibFileItem>irodsfs/libirodsfs.so</linkerLibFileItem>
           </linkerLibItems>
         </linkerTool>
       </compileType>
@@ -109,7 +109,7 @@
             <linkerLibStdlibItem>PosixThreads</linkerLibStdlibItem>
             <linkerOptionItem>`pkg-config --libs liblog4cxx`</linkerOptionItem>
             <linkerOptionItem>`pkg-config --libs jsoncpp`</linkerOptionItem>
-            <linkerLibFileItem>irodsfslib/libfslib.so</linkerLibFileItem>
+            <linkerLibFileItem>irodsfs/libirodsfs.so</linkerLibFileItem>
           </linkerLibItems>
         </linkerTool>
       </compileType>
