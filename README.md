@@ -1,5 +1,5 @@
 # iplant_border_msgserver
-An iPlant Border Message Server
+iPlant Border Message Server
 
 Overview
 --------
@@ -12,8 +12,8 @@ This program has dependencies following:
 - Log4cxx
 - RabbitMQ
 - RabbitMQ-c
-- iRODS fslib (under irodsfslib/)
-- iRODS network plugins (under irodsfslib/plugins_ARCH/network)
+- libirodsfs (under irodsfs/)
+- iRODS network plugins (under irodsfs/plugins_ARCH/network)
 
 
 Build
