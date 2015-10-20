@@ -161,6 +161,7 @@ static int create_datastoremsg(const char *operation, const char *zone, const ch
 static int handle_basic(amqp_envelope_t *envelope, DataStoreMsg_t **dsmsg) {
     Json::Value msgjson;
     Json::Reader reader;
+    Json::FastWriter writer;
     char msgbody[MESSAGE_BODY_MAX_LEN];
     char msgoperation[OPERATION_MAX_LEN];
     DataStoreMsg_t *dsmsg_front = NULL;
@@ -200,6 +201,11 @@ static int handle_basic(amqp_envelope_t *envelope, DataStoreMsg_t **dsmsg) {
     memset(msgoperation, 0, OPERATION_MAX_LEN);
     memcpy(msgoperation, (char*)envelope->routing_key.bytes, envelope->routing_key.len);
 
+    msgjson["operation"] = msgoperation;
+    
+    // update msgbody for changes
+    strcpy(msgbody, writer.write(msgjson).c_str());
+    
     if(!msgjson["author"].isNull()) {
         DataStoreMsg_t *dsmsg_tmp = NULL;
         
@@ -340,6 +346,8 @@ static int handle_mod(amqp_envelope_t *envelope, DataStoreMsg_t **dsmsg) {
     *dsmsg = NULL;
     memset(msgoperation, 0, OPERATION_MAX_LEN);
     memcpy(msgoperation, (char*)envelope->routing_key.bytes, envelope->routing_key.len);
+
+    msgjson["operation"] = msgoperation;
     
     if(!msgjson["entity"].isNull() && msgjson["path"].isNull()) {
         status = convertUUIDtoPath(msgjson["entity"].asCString(), path_buffer);
@@ -347,9 +355,11 @@ static int handle_mod(amqp_envelope_t *envelope, DataStoreMsg_t **dsmsg) {
             LOG4CXX_ERROR(logger, "handle_mod: unable to convert to path " << msgjson["entity"].asCString());
         } else {
             msgjson["path"] = path_buffer;
-            strcpy(msgbody, writer.write(msgjson).c_str());
         }
     }
+    
+    // update msgbody for changes
+    strcpy(msgbody, writer.write(msgjson).c_str());
     
     if(!msgjson["author"].isNull()) {
         DataStoreMsg_t *dsmsg_tmp = NULL;
@@ -456,7 +466,6 @@ static int handle_mod(amqp_envelope_t *envelope, DataStoreMsg_t **dsmsg) {
 static int _process(DataStoreMsgReceiver_t *receiver, amqp_envelope_t *envelope) {
     int status = 0;
     char routing_key[ROUTING_KEY_MAX_LEN];
-    char new_exchange[CREDENTIAL_MAX_LEN];
     char new_routing_key[ROUTING_KEY_MAX_LEN];
     int i;
     
@@ -492,14 +501,11 @@ static int _process(DataStoreMsgReceiver_t *receiver, amqp_envelope_t *envelope)
             while(pdsmsg != NULL) {
                 DataStoreMsg_t *olddsmsg = pdsmsg;
                 
-                memset(new_routing_key, 0, ROUTING_KEY_MAX_LEN);
-                sprintf(new_routing_key, "%s", pdsmsg->operation);
-
-                memset(new_exchange, 0, CREDENTIAL_MAX_LEN);
-                sprintf(new_exchange, "%s_%s", pdsmsg->zone, pdsmsg->name);
+                memset(new_routing_key, 0, CREDENTIAL_MAX_LEN);
+                sprintf(new_routing_key, "%s_%s", pdsmsg->zone, pdsmsg->name);
 
                 if(receiver->publisher != NULL) {
-                    publish(receiver->publisher, new_exchange, new_routing_key, pdsmsg->body);
+                    publish(receiver->publisher, "", new_routing_key, pdsmsg->body);
                 }
 
                 pdsmsg = pdsmsg->next;
@@ -574,6 +580,11 @@ static int _checkConnConf(DataStoreMsgServerConf_t *conn) {
         return EINVAL;
     }
     
+    if(strlen(conn->vhost) == 0) {
+        LOG4CXX_ERROR(logger, "_checkConnConf: conn.vhost is empty");
+        return EINVAL;
+    }
+    
     if(strlen(conn->exchange) == 0) {
         LOG4CXX_ERROR(logger, "_checkConnConf: conn.exchange is empty");
         return EINVAL;
@@ -621,6 +632,7 @@ int readDataStoreMsgReceiverConf(char *path, DataStoreMsgServerConf_t **conf) {
     handle->port = confjson["port"].asInt();
     strcpy(handle->user_id, confjson["user_id"].asCString());
     strcpy(handle->user_pwd, confjson["user_pwd"].asCString());
+    strcpy(handle->vhost, confjson["vhost"].asCString());
     strcpy(handle->exchange, confjson["exchange"].asCString());
     
     if(confjson["routing_keys"].isNull()) {
@@ -736,7 +748,7 @@ int createDataStoreMsgReceiver(DataStoreMsgServerConf_t *conf, Publisher_t *publ
     LOG4CXX_DEBUG(logger, "createDataStoreMsgReceiver: logging in with " << conf->user_id);
     
     // login
-    reply = amqp_login(handle->conn_state, "/", 0, AMQP_DEFAULT_FRAME_SIZE, 0, AMQP_SASL_METHOD_PLAIN, conf->user_id, conf->user_pwd);
+    reply = amqp_login(handle->conn_state, conf->vhost, 0, AMQP_DEFAULT_FRAME_SIZE, 0, AMQP_SASL_METHOD_PLAIN, conf->user_id, conf->user_pwd);
     if(reply.reply_type != AMQP_RESPONSE_NORMAL) {
         LOG4CXX_ERROR(logger, "createDataStoreMsgReceiver: unable to login with " << conf->user_id);
         amqp_connection_close(handle->conn_state, AMQP_REPLY_SUCCESS);

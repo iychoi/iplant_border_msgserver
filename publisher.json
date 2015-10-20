@@ -1,6 +1,7 @@
 {
-    "hostname":"localhost",
-    "port":5672,
-    "user_id":"iplant",
-    "user_pwd":"iplant"
+    "hostname":"irods-2.iplantcollaborative.org",
+    "port":31333,
+    "user_id":"",
+    "user_pwd":"",
+    "vhost":"/irods/useraccess"
 }

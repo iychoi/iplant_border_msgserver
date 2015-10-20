@@ -15,6 +15,7 @@ src_host=""
 src_port=0
 src_user=""
 src_password=""
+src_vhost=""
 src_exchange=""
 
 icat_host=""
@@ -25,6 +26,7 @@ icat_zone=""
 
 rbmq_user=""
 rbmq_password=""
+rbmq_vhost=""
 
 def makeSedSafe(unsafeStr):
     safeStr=""
@@ -39,6 +41,7 @@ def fill_template(path):
     subprocess.call("sed -i 's/" + "\$SRC_PORT\$" + "/" + str(src_port) + "/g' " + path, shell=True)
     subprocess.call("sed -i 's/" + "\$SRC_USER\$" + "/" + makeSedSafe(src_user) + "/g' " + path, shell=True)
     subprocess.call("sed -i 's/" + "\$SRC_PASSWORD\$" + "/" + makeSedSafe(src_password) + "/g' " + path, shell=True)
+    subprocess.call("sed -i 's/" + "\$SRC_VHOST\$" + "/" + makeSedSafe(src_vhost) + "/g' " + path, shell=True)
     subprocess.call("sed -i 's/" + "\$SRC_EXCHANGE\$" + "/" + makeSedSafe(src_exchange) + "/g' " + path, shell=True)
 
     subprocess.call("sed -i 's/" + "\$ICAT_HOST\$" + "/" + makeSedSafe(icat_host) + "/g' " + path, shell=True)
@@ -49,6 +52,7 @@ def fill_template(path):
 
     subprocess.call("sed -i 's/" + "\$RBMQ_USER\$" + "/" + makeSedSafe(rbmq_user) + "/g' " + path, shell=True)
     subprocess.call("sed -i 's/" + "\$RBMQ_PASSWORD\$" + "/" + makeSedSafe(rbmq_password) + "/g' " + path, shell=True)
+    subprocess.call("sed -i 's/" + "\$RBMQ_VHOST\$" + "/" + makeSedSafe(rbmq_vhost) + "/g' " + path, shell=True)
 
 def build_config():
     # initscript
@@ -100,6 +104,8 @@ def main():
     src_user = raw_input("USER : ")
     global src_password
     src_password = getpass.getpass("PASSWORD : ")
+    global src_vhost
+    src_vhost = raw_input("VHOST : ")
     global src_exchange
     src_exchange = raw_input("EXCHANGE : ")
     print ""
@@ -128,6 +134,8 @@ def main():
     rbmq_user = raw_input("USER : ")
     global rbmq_password
     rbmq_password = getpass.getpass("PASSWORD : ")
+    global rbmq_vhost
+    rbmq_vhost = raw_input("VHOST : ")
 
     build_config()
 

@@ -5,6 +5,9 @@
 # Create users
 rabbitmqctl add_user $RBMQ_USER$ $RBMQ_PASSWORD$ ; \
 
+# Create vhost
+rabbitmqctl add_vhost $RBMQ_VHOST$ ; \
+
 # Set user rights
 rabbitmqctl set_user_tags $RBMQ_USER$ administrator ; \
 rabbitmqctl set_permissions -p / $RBMQ_USER$ ".*" ".*" ".*" ; \

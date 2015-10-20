@@ -1,7 +1,7 @@
 {
-    "hostname":"",
+    "hostname":"irods-2.iplantcollaborative.org",
     "port":1247,
     "user_id":"",
     "user_pwd":"",
-    "zone":""
+    "zone":"iplant"
 }

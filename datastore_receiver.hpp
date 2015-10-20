@@ -21,6 +21,7 @@ typedef struct _DataStoreMsgServerConf {
     int port;
     char user_id[CREDENTIAL_MAX_LEN];
     char user_pwd[CREDENTIAL_MAX_LEN];
+    char vhost[CREDENTIAL_MAX_LEN];
     char exchange[CREDENTIAL_MAX_LEN];
     char **routing_keys;
     int routing_keys_len;

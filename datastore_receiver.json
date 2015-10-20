@@ -1,9 +1,10 @@
 {
-    "hostname":"localhost",
-    "port":5672,
-    "user_id":"user",
-    "user_pwd":"password",
-    "exchange":"exchange",
+    "hostname":"irods-2.iplantcollaborative.org",
+    "port":31333,
+    "user_id":"",
+    "user_pwd":"",
+    "vhost":"/",
+    "exchange":"irods",
     "routing_keys":["collection.add", "collection.rm", "collection.acl.mod",
         "data-object.add", "data-object.mod", "data-object.rm", "data-object.acl.mod"]
 }

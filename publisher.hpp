@@ -18,6 +18,7 @@ typedef struct _PublisherConf {
     int port;
     char user_id[CREDENTIAL_MAX_LEN];
     char user_pwd[CREDENTIAL_MAX_LEN];
+    char vhost[CREDENTIAL_MAX_LEN];
 } PublisherConf_t;
 
 typedef struct _Publisher {

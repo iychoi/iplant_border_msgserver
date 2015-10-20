@@ -52,6 +52,11 @@ static int _checkConnConf(PublisherConf_t *conn) {
         return EINVAL;
     }
     
+    if(strlen(conn->vhost) == 0) {
+        LOG4CXX_ERROR(logger, "_checkConnConf: conn.vhost is empty");
+        return EINVAL;
+    }
+    
     return 0;
 }
 
@@ -91,6 +96,7 @@ int readPublisherConf(char *path, PublisherConf_t **conf) {
     handle->port = confjson["port"].asInt();
     strcpy(handle->user_id, confjson["user_id"].asCString());
     strcpy(handle->user_pwd, confjson["user_pwd"].asCString());
+    strcpy(handle->vhost, confjson["vhost"].asCString());
     
     *conf = handle;
     
@@ -125,7 +131,7 @@ int createPublisher(PublisherConf_t *conf, Publisher_t **publisher) {
     
     *publisher = NULL;
     
-    handle = new Publisher_t;
+    handle = new Publisher_t();
     if(handle == NULL) {
         LOG4CXX_ERROR(logger, "createPublisher: not enough memory to allocate");
         return ENOMEM;
@@ -155,7 +161,7 @@ int createPublisher(PublisherConf_t *conf, Publisher_t **publisher) {
     LOG4CXX_DEBUG(logger, "createPublisher: logging in with " << conf->user_id);
     
     // login
-    reply = amqp_login(handle->conn_state, "/", 0, AMQP_DEFAULT_FRAME_SIZE, 0, AMQP_SASL_METHOD_PLAIN, conf->user_id, conf->user_pwd);
+    reply = amqp_login(handle->conn_state, conf->vhost, 0, AMQP_DEFAULT_FRAME_SIZE, 0, AMQP_SASL_METHOD_PLAIN, conf->user_id, conf->user_pwd);
     if(reply.reply_type != AMQP_RESPONSE_NORMAL) {
         LOG4CXX_ERROR(logger, "createPublisher: unable to login with " << conf->user_id);
         amqp_connection_close(handle->conn_state, AMQP_REPLY_SUCCESS);
@@ -208,44 +214,50 @@ int publish(Publisher_t *publisher, const char *exchange, const char *routing_ke
         return EINVAL;
     }
     
-    it = publisher->exchanges.find(key);
-    if(it == publisher->exchanges.end()) {
-        amqp_exchange_declare_ok_t *exchange_status;
+    if(!key.empty()) {
+        it = publisher->exchanges.find(key);
+        if(it == publisher->exchanges.end()) {
+            amqp_exchange_declare_ok_t *exchange_status;
 
-        LOG4CXX_DEBUG(logger, "publish: declaring an exchange : " << key);
+            LOG4CXX_DEBUG(logger, "publish: declaring an exchange : " << key);
 
-        // declare an exchange
-        exchange_status = amqp_exchange_declare(publisher->conn_state, publisher->channel, amqp_cstring_bytes(exchange), amqp_cstring_bytes("topic"), 0, 0, 0, 0, amqp_empty_table);
-        reply = amqp_get_rpc_reply(publisher->conn_state);
-        if(reply.reply_type != AMQP_RESPONSE_NORMAL) {
-            LOG4CXX_ERROR(logger, "publish: unable to declare an exchange");
-        } else {
-            publisher->exchanges[key] = key;
-        }
-
-        /*
-        LOG4CXX_DEBUG(logger, "_publisherThread: declaring and binding a queue");
-
-        // declare a queue
-        queue_status = amqp_queue_declare(publisher->conn_state, publisher->channel, amqp_cstring_bytes(msg->queuename), 0, 0, 1, 1, amqp_empty_table);
-        reply = amqp_get_rpc_reply(publisher->conn_state);
-        if(reply.reply_type != AMQP_RESPONSE_NORMAL) {
-            LOG4CXX_ERROR(logger, "_publisherThread: unable to declare a queue");
-        } else {
-            // bind a queue
-            amqp_queue_bind(publisher->conn_state, publisher->channel, amqp_cstring_bytes(msg->queuename), amqp_cstring_bytes(msg->exchange), amqp_cstring_bytes(msg->binding), amqp_empty_table);
+            // declare an exchange
+            exchange_status = amqp_exchange_declare(publisher->conn_state, publisher->channel, amqp_cstring_bytes(exchange), amqp_cstring_bytes("direct"), 0, 0, 0, 0, amqp_empty_table);
             reply = amqp_get_rpc_reply(publisher->conn_state);
             if(reply.reply_type != AMQP_RESPONSE_NORMAL) {
-                LOG4CXX_ERROR(logger, "_publisherThread: unable to bind a queue");
+                LOG4CXX_ERROR(logger, "publish: unable to declare an exchange");
             } else {
-                publisher->queuenames[key] = key;
+                publisher->exchanges[key] = key;
             }
+
+            /*
+            LOG4CXX_DEBUG(logger, "_publisherThread: declaring and binding a queue");
+
+            // declare a queue
+            queue_status = amqp_queue_declare(publisher->conn_state, publisher->channel, amqp_cstring_bytes(msg->queuename), 0, 0, 1, 1, amqp_empty_table);
+            reply = amqp_get_rpc_reply(publisher->conn_state);
+            if(reply.reply_type != AMQP_RESPONSE_NORMAL) {
+                LOG4CXX_ERROR(logger, "_publisherThread: unable to declare a queue");
+            } else {
+                // bind a queue
+                amqp_queue_bind(publisher->conn_state, publisher->channel, amqp_cstring_bytes(msg->queuename), amqp_cstring_bytes(msg->exchange), amqp_cstring_bytes(msg->binding), amqp_empty_table);
+                reply = amqp_get_rpc_reply(publisher->conn_state);
+                if(reply.reply_type != AMQP_RESPONSE_NORMAL) {
+                    LOG4CXX_ERROR(logger, "_publisherThread: unable to bind a queue");
+                } else {
+                    publisher->queuenames[key] = key;
+                }
+            }
+            */
         }
-        */
     }
     
-    LOG4CXX_DEBUG(logger, "publish: " << exchange << ":" << routing_key << "\t" << body);
-
+    if(key.empty()) {
+        LOG4CXX_DEBUG(logger, "publish: DEFAULT:" << routing_key << "\t" << body);
+    } else {
+        LOG4CXX_DEBUG(logger, "publish: " << exchange << ":" << routing_key << "\t" << body);
+    }
+    
     // send
     status = amqp_basic_publish(publisher->conn_state, publisher->channel, amqp_cstring_bytes(exchange), amqp_cstring_bytes(routing_key), 0, 0, NULL, amqp_cstring_bytes(body));
     if(status != 0) {
