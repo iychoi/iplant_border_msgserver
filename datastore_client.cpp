@@ -31,10 +31,16 @@ static lru::Cache<string, string> g_uuid_path_cache(10240, 100);
  */
 int initDataStoreClient(irodsfsConf_t *conf) {
     int status = 0;
+    char *plugin_home;
     
     if(conf == NULL) {
         LOG4CXX_ERROR(logger, "initDataStoreClient: conf is null");
         return EINVAL;
+    }
+    
+    plugin_home = getenv("IRODS_PLUGINS_HOME");
+    if(plugin_home == NULL || strlen(plugin_home) == 0) {
+        setenv("IRODS_PLUGINS_HOME", "./irodsfs/plugins/", 1);
     }
     
     status = irodsfsInit(conf, NULL);
