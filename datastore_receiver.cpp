@@ -482,13 +482,13 @@ static int _process(DataStoreMsgReceiver_t *receiver, amqp_envelope_t *envelope)
     memcpy(routing_key, (char*)envelope->routing_key.bytes, envelope->routing_key.len);
     routing_key[envelope->routing_key.len] = 0;
     
+    LOG4CXX_DEBUG(logger, "_process: process routing_key = " << routing_key);
+    
     // check accept
     for(i=0;i<sizeof(routing_keys);i++) {
         if(strcmp(routing_key, routing_keys[i].keys) == 0) {
             DataStoreMsg_t *dsmsg = NULL;
             DataStoreMsg_t *pdsmsg = NULL;
-            
-            LOG4CXX_DEBUG(logger, "_process: routing_key = " << routing_key);
             
             // call handler
             status = routing_keys[i].handler(envelope, &dsmsg);
@@ -524,8 +524,14 @@ static void* _receiveThread(void* param) {
     DataStoreMsgReceiver_t *receiver = (DataStoreMsgReceiver_t *)param;
     amqp_envelope_t envelope;
     amqp_rpc_reply_t reply;
+    struct timeval timeout;
     
     assert(receiver != NULL);
+    
+    // 1 sec timeout
+    memset(&timeout, 0, sizeof(struct timeval));
+    timeout.tv_sec = 1;
+    timeout.tv_usec = 0;
     
     LOG4CXX_DEBUG(logger, "_receiveThread: event receiver thread started");
     
@@ -534,19 +540,18 @@ static void* _receiveThread(void* param) {
         
         pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
         
-        reply = amqp_consume_message(receiver->conn_state, &envelope, NULL, 0);
-        if(reply.reply_type != AMQP_RESPONSE_NORMAL) {
-            LOG4CXX_ERROR(logger, "_receiveThread: failed to consume message - killing the thread");
-            break;
+        reply = amqp_consume_message(receiver->conn_state, &envelope, &timeout, 0);
+        if(reply.reply_type == AMQP_RESPONSE_NORMAL) {
+            LOG4CXX_DEBUG(logger, "_receiveThread: received a message");
+            
+            status = _process(receiver, &envelope);
+            if(status != 0) {
+                LOG4CXX_ERROR(logger, "_receiveThread: failed to process message - killing the thread");
+                break;
+            }
+
+            amqp_destroy_envelope(&envelope);
         }
-        
-        status = _process(receiver, &envelope);
-        if(status != 0) {
-            LOG4CXX_ERROR(logger, "_receiveThread: failed to process message - killing the thread");
-            break;
-        }
-        
-        amqp_destroy_envelope(&envelope);
         
         pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
     }
