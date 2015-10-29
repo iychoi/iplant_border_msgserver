@@ -537,7 +537,7 @@ static void* _receiveThread(void* param) {
     
     LOG4CXX_DEBUG(logger, "_receiveThread: event receiver thread started");
     
-    while(receiver->thread_run) {
+    while(receiver->thread_run && !onError) {
         amqp_maybe_release_buffers(receiver->conn_state);
         
         pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
