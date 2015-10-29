@@ -525,6 +525,8 @@ static void* _receiveThread(void* param) {
     amqp_envelope_t envelope;
     amqp_rpc_reply_t reply;
     struct timeval timeout;
+    amqp_frame_t frame;
+    bool onError = false;
     
     assert(receiver != NULL);
     
@@ -547,16 +549,77 @@ static void* _receiveThread(void* param) {
             status = _process(receiver, &envelope);
             if(status != 0) {
                 LOG4CXX_ERROR(logger, "_receiveThread: failed to process message - killing the thread");
+                onError = true;
                 break;
             }
-
             amqp_destroy_envelope(&envelope);
+        } else {
+            if(reply.reply_type == AMQP_RESPONSE_LIBRARY_EXCEPTION && reply.library_error == AMQP_STATUS_UNEXPECTED_STATE) {
+                if(amqp_simple_wait_frame(receiver->conn_state, &frame) != AMQP_STATUS_OK) {
+                    LOG4CXX_ERROR(logger, "_receiveThread: failed to wait frame - killing the thread");
+                    onError = true;
+                    break;
+                }
+                
+                if(frame.frame_type == AMQP_FRAME_METHOD) {
+                    switch (frame.payload.method.id) {
+                        case AMQP_BASIC_ACK_METHOD:
+                            /* if we've turned publisher confirms on, and we've published a message
+                             * here is a message being confirmed
+                             */
+                            break;
+                        case AMQP_BASIC_RETURN_METHOD:
+                            /* if a published message couldn't be routed and the mandatory flag was set
+                             * this is what would be returned. The message then needs to be read.
+                             */
+                            {
+                                amqp_message_t message;
+                                reply = amqp_read_message(receiver->conn_state, frame.channel, &message, 0);
+                                if (reply.reply_type == AMQP_RESPONSE_NORMAL) {
+                                    LOG4CXX_DEBUG(logger, "_receiveThread: received a message (frame_method) - ignore");
+                                    amqp_destroy_message(&message);
+                                } else {
+                                    LOG4CXX_ERROR(logger, "_receiveThread: failed to read message - killing the thread");
+                                    onError = true;
+                                    break;
+                                }
+                            }
+                            break;
+                        case AMQP_CHANNEL_CLOSE_METHOD:
+                            /* a channel.close method happens when a channel exception occurs, this
+                             * can happen by publishing to an exchange that doesn't exist for example
+                             *
+                             * In this case you would need to open another channel redeclare any queues
+                             * that were declared auto-delete, and restart any consumers that were attached
+                             * to the previous channel
+                             */
+                            LOG4CXX_ERROR(logger, "_receiveThread: channel closed - killing the thread");
+                            onError = true;
+                            break;
+                        case AMQP_CONNECTION_CLOSE_METHOD:
+                            /* a connection.close method happens when a connection exception occurs,
+                             * this can happen by trying to use a channel that isn't open for example.
+                             *
+                             * In this case the whole connection must be restarted.
+                             */
+                            LOG4CXX_ERROR(logger, "_receiveThread: connection closed - killing the thread");
+                            onError = true;
+                            break;
+                        default:
+                            LOG4CXX_ERROR(logger, "_receiveThread: unexpected method was received " << frame.payload.method.id << " - killing the thread");
+                            onError = true;
+                            break;
+                    }
+                }
+            }
         }
         
         pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
     }
     
     receiver->thread_run = false;
+    
+    // reinvoke thread
 }
 
 static int _checkConnConf(DataStoreMsgServerConf_t *conn) {
