@@ -41,12 +41,12 @@ extern "C" {
     int irodsfsDestroy();
     
     int irodsfsGetAttr(const char *path, struct stat *stbuf);
-    int irodsfsOpen(const char *path, irodsfsFileInfo_t *fi);
+    int irodsfsOpen(const char *path, int flags, irodsfsFileInfo_t *fi);
     int irodsfsClose(irodsfsFileInfo_t *fi);
     int irodsfsFlush(irodsfsFileInfo_t *fi);
     int irodsfsRead(char *buf, size_t size, off_t offset, irodsfsFileInfo_t *fi);
     int irodsfsWrite(const char *buf, size_t size, off_t offset, irodsfsFileInfo_t *fi);
-    int irodsfsCreate(const char *path, mode_t mode, dev_t rdev);
+    int irodsfsCreate(const char *path, mode_t mode);
     int irodsfsUnlink(const char *path);
     int irodsfsLink(const char *from, const char *to);
     int irodsfsStatfs(const char *path, struct statvfs *stbuf);
